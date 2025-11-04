@@ -130,7 +130,7 @@ const VendorLayout = ({ children }) => {
 
       {/* Desktop sidebar */}
       <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'
+        sidebarCollapsed ? 'lg:w-14' : 'lg:w-56'
       }`}>
         <SidebarContent
           navigation={navigation}
@@ -144,11 +144,11 @@ const VendorLayout = ({ children }) => {
 
       {/* Main content */}
       <div className={`flex-1 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'
+        sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56'
       }`}>
         {/* Top header */}
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
-          <div className="flex h-[3.46rem] items-center justify-between px-6">
+          <div className="flex h-12 items-center justify-between px-6">
             <div className="flex items-center gap-x-4">
               <button
                 type="button"
@@ -206,7 +206,7 @@ const VendorLayout = ({ children }) => {
 
         {/* Main content area */}
         <main className="flex-1">
-          <div className="mx-auto max-w-full px-6 py-6">
+          <div className="mx-auto max-w-full px-6 py-4">
             {children}
           </div>
         </main>
@@ -219,46 +219,46 @@ const VendorLayout = ({ children }) => {
 const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed, onToggleCollapse, isMobile }) => {
   return (
     <div className="flex h-full flex-col gap-y-5 overflow-y-auto bg-white shadow-sm">
-      <div className="flex h-16 shrink-0 items-center justify-between px-6">
+      <div className="flex h-12 shrink-0 items-center justify-between px-4">
         {!collapsed && (
-          <div className="flex items-center gap-x-3">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <BuildingStorefrontIcon className="h-5 w-5 text-white" />
+          <div className="flex items-center gap-x-2">
+            <div className="h-6 w-6 rounded-lg bg-blue-600 flex items-center justify-center">
+              <BuildingStorefrontIcon className="h-4 w-4 text-white" />
             </div>
-            <span className="text-xl font-semibold text-gray-900 font-['Gilroy']">Vendor Portal</span>
+            <span className="text-lg font-semibold text-gray-900 font-['Gilroy']">Vendor Portal</span>
           </div>
         )}
         {collapsed && !isMobile && (
-          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <BuildingStorefrontIcon className="h-5 w-5 text-white" />
+          <div className="h-6 w-6 rounded-lg bg-blue-600 flex items-center justify-center">
+            <BuildingStorefrontIcon className="h-4 w-4 text-white" />
           </div>
         )}
         {isMobile && (
           <button
             type="button"
-            className="-m-2.5 p-2.5 text-gray-700 hover:text-gray-900"
+            className="-m-2 p-2 text-gray-700 hover:text-gray-900"
             onClick={onClose}
           >
-            <XMarkIcon className="h-6 w-6" />
+            <XMarkIcon className="h-5 w-5" />
           </button>
         )}
         {!isMobile && (
           <button
             type="button"
-            className="-m-2.5 p-2.5 text-gray-700 hover:text-gray-900"
+            className="-m-2 p-2 text-gray-700 hover:text-gray-900"
             onClick={onToggleCollapse}
           >
-            <Bars3Icon className="h-6 w-6" />
+            <Bars3Icon className="h-5 w-5" />
           </button>
         )}
       </div>
 
-      <nav className="flex flex-1 flex-col px-6 pb-4">
-        <ul role="list" className="flex flex-1 flex-col gap-y-7">
+      <nav className="flex flex-1 flex-col px-4 pb-3">
+        <ul role="list" className="flex flex-1 flex-col gap-y-4">
           {navigation.map((section, sectionIdx) => (
             <li key={sectionIdx}>
               {!collapsed && (
-                <div className="text-xs font-semibold leading-6 text-gray-400 mb-3 font-['Gilroy'] tracking-wide">
+                <div className="text-xs font-semibold leading-6 text-gray-400 mb-2 font-['Gilroy'] tracking-wide">
                   {section.section}
                 </div>
               )}
@@ -268,7 +268,7 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
                     <Link
                       to={item.href}
                       onClick={isMobile ? onClose : undefined}
-                      className={`group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-medium transition-all duration-200 font-['Gilroy'] ${
+                      className={`group flex gap-x-2 rounded-md p-2 text-sm leading-6 font-medium transition-all duration-200 font-['Gilroy'] ${
                         isActive(item.href)
                           ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
                           : 'text-gray-700 hover:text-blue-700 hover:bg-gray-50'
@@ -276,7 +276,7 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
                       title={collapsed ? item.name : undefined}
                     >
                       <item.icon
-                        className={`h-6 w-6 shrink-0 transition-colors duration-200 ${
+                        className={`h-5 w-5 shrink-0 transition-colors duration-200 ${
                           isActive(item.href) ? 'text-blue-700' : 'text-gray-400 group-hover:text-blue-700'
                         }`}
                       />
@@ -294,10 +294,10 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
           <li className="mt-auto">
             <button
               onClick={handleLogout}
-              className={`group flex w-full gap-x-3 rounded-md p-3 text-sm leading-6 font-medium text-gray-700 hover:text-red-700 hover:bg-red-50 transition-all duration-200 font-['Gilroy']`}
+              className={`group flex w-full gap-x-2 rounded-md p-2 text-sm leading-6 font-medium text-gray-700 hover:text-red-700 hover:bg-red-50 transition-all duration-200 font-['Gilroy']`}
               title={collapsed ? 'Sign out' : undefined}
             >
-              <ArrowRightOnRectangleIcon className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-red-700 transition-colors duration-200" />
+              <ArrowRightOnRectangleIcon className="h-5 w-5 shrink-0 text-gray-400 group-hover:text-red-700 transition-colors duration-200" />
               {!collapsed && (
                 <span className="truncate">Sign out</span>
               )}
