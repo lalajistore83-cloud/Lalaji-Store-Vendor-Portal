@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline';
 import { auth } from '../utils/auth';
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    emailOrPhone: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -14,15 +14,15 @@ const Login = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Check if already logged in
-  useState(() => {
+  useEffect(() => {
     const checkAuth = async () => {
       try {
-        const authStatus = await auth.checkAuth();
-        if (authStatus) {
-          setIsAuthenticated(true);
-        }
+        // Use the new initialize method for consistent authentication check
+        const authStatus = await auth.initializeAuth();
+        setIsAuthenticated(authStatus);
       } catch (error) {
-        console.log('Not authenticated');
+        console.log('Not authenticated:', error);
+        setIsAuthenticated(false);
       }
     };
     checkAuth();
@@ -42,9 +42,11 @@ const Login = () => {
     setError('');
 
     try {
-      await auth.login(formData.email, formData.password);
+      console.log('Login form data:', formData);
+      await auth.login(formData.emailOrPhone, formData.password);
       setIsAuthenticated(true);
     } catch (error) {
+      console.error('Login error:', error);
       setError(error.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -88,22 +90,25 @@ const Login = () => {
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
+                <label htmlFor="emailOrPhone" className="block text-sm font-medium text-gray-700">
+                  Email or Phone Number
                 </label>
                 <div className="mt-1">
                   <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
+                    id="emailOrPhone"
+                    name="emailOrPhone"
+                    type="text"
+                    autoComplete="username"
                     required
-                    value={formData.email}
+                    value={formData.emailOrPhone}
                     onChange={handleChange}
                     className="block w-full appearance-none rounded-lg border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                    placeholder="Enter your email"
+                    placeholder="Enter your email or phone number"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  You can use either your email address or phone number
+                </p>
               </div>
 
               <div>

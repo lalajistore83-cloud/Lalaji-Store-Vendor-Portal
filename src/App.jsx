@@ -45,9 +45,37 @@ const VendorLayout = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    // Get user data from auth utility
-    const userData = auth.getUser();
-    setUser(userData);
+    // Get user data from auth utility and localStorage
+    const loadUserData = () => {
+      const userData = auth.getUser();
+      if (userData) {
+        setUser(userData);
+      } else {
+        // Try to get from localStorage as backup
+        const storedUser = localStorage.getItem('vendor_user');
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+          } catch (error) {
+            console.error('Error parsing stored user data:', error);
+          }
+        }
+      }
+    };
+
+    loadUserData();
+
+    // Listen for storage changes (when user logs in from another tab)
+    const handleStorageChange = () => {
+      loadUserData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -277,10 +305,11 @@ const ProtectedRoute = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const authStatus = await auth.checkAuth();
+        // Use the new initialize method for better startup authentication
+        const authStatus = await auth.initializeAuth();
         setIsAuthenticated(authStatus);
       } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error('Auth initialization failed:', error);
         setIsAuthenticated(false);
       }
     };

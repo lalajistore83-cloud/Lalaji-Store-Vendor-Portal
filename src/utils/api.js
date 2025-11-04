@@ -1,16 +1,17 @@
 // API utilities for vendor portal
-import { auth } from './auth';
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Helper function to make authenticated requests
 const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Get token from localStorage directly to avoid circular dependency
+  const token = localStorage.getItem('vendor_token');
+  
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
-      ...(auth.getToken() ? { 'Authorization': `Bearer ${auth.getToken()}` } : {}),
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
   };
 
@@ -28,17 +29,20 @@ const apiRequest = async (endpoint, options = {}) => {
 
     // Handle token expiration
     if (response.status === 401) {
-      auth.logout();
+      // Clear auth data
+      localStorage.removeItem('vendor_token');
+      localStorage.removeItem('vendor_user');
       window.location.href = '/login';
       return;
     }
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+      throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error(`API request failed for ${endpoint}:`, error);
     throw error;
