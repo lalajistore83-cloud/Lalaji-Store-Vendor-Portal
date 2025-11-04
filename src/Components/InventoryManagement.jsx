@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -9,7 +9,8 @@ import {
   CubeIcon,
   TagIcon,
   AdjustmentsHorizontalIcon,
-  ArchiveBoxIcon
+  ArchiveBoxIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { getVendorProducts, updateVendorProductStock } from '../utils/api';
 
@@ -27,12 +28,28 @@ const InventoryManagement = () => {
     quantity: '',
     operation: 'add'
   });
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef(null);
 
   // Get unique categories from inventory
   const categories = [...new Set(inventory.map(item => item.category).filter(Boolean))];
 
   useEffect(() => {
     fetchInventory();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const fetchInventory = async (isRefresh = false) => {
@@ -316,10 +333,16 @@ const InventoryManagement = () => {
           </button>
         </div>
       </div>
-
-      {/* Stats Cards */}
+{/* Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
-        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+        <div 
+          onClick={() => setFilterStock('all')}
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === 'all' 
+              ? 'border-blue-500 shadow-md' 
+              : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+          }`}
+        >
           <div className="p-3">
             <div className="flex items-center">
               <div className="shrink-0">
@@ -334,7 +357,14 @@ const InventoryManagement = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+        <div 
+          onClick={() => setFilterStock(filterStock === 'in_stock' ? 'all' : 'in_stock')}
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === 'in_stock' 
+              ? 'border-green-500 shadow-md' 
+              : 'border-gray-200 hover:border-green-300 hover:shadow-sm'
+          }`}
+        >
           <div className="p-3">
             <div className="flex items-center">
               <div className="shrink-0">
@@ -349,7 +379,14 @@ const InventoryManagement = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+        <div 
+          onClick={() => setFilterStock(filterStock === 'low_stock' ? 'all' : 'low_stock')}
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === 'low_stock' 
+              ? 'border-yellow-500 shadow-md' 
+              : 'border-gray-200 hover:border-yellow-300 hover:shadow-sm'
+          }`}
+        >
           <div className="p-3">
             <div className="flex items-center">
               <div className="shrink-0">
@@ -364,7 +401,14 @@ const InventoryManagement = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+        <div 
+          onClick={() => setFilterStock(filterStock === 'out_of_stock' ? 'all' : 'out_of_stock')}
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === 'out_of_stock' 
+              ? 'border-red-500 shadow-md' 
+              : 'border-gray-200 hover:border-red-300 hover:shadow-sm'
+          }`}
+        >
           <div className="p-3">
             <div className="flex items-center">
               <div className="shrink-0">
@@ -395,6 +439,109 @@ const InventoryManagement = () => {
           </div>
         </div>
       </div>
+      {/* Search and Filters */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search Bar */}
+          <div className="flex-1">
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by product name or SKU..."
+                className="block w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category Filter */}
+          <div className="w-full sm:w-48 relative" ref={categoryDropdownRef}>
+            <button
+              onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+              className="w-full flex items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            >
+              <div className="flex items-center">
+                <TagIcon className="h-4 w-4 text-gray-400 mr-2" />
+                <span className="truncate">
+                  {filterCategory === 'all' ? 'All Categories' : filterCategory}
+                </span>
+              </div>
+              <ChevronDownIcon 
+                className={`h-4 w-4 text-gray-400 transition-transform ${
+                  categoryDropdownOpen ? 'rotate-180' : ''
+                }`} 
+              />
+            </button>
+
+            {/* Dropdown Menu */}
+            {categoryDropdownOpen && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                <div
+                  onClick={() => {
+                    setFilterCategory('all');
+                    setCategoryDropdownOpen(false);
+                  }}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
+                    filterCategory === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <TagIcon className="h-4 w-4 mr-2 text-gray-400" />
+                    All Categories
+                  </div>
+                </div>
+                {categories.map((category) => (
+                  <div
+                    key={category}
+                    onClick={() => {
+                      setFilterCategory(category);
+                      setCategoryDropdownOpen(false);
+                    }}
+                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
+                      filterCategory === category ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <TagIcon className="h-4 w-4 mr-2 text-gray-400" />
+                      {category}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Clear Filters Button */}
+          {(searchTerm || filterCategory !== 'all' || filterStock !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterCategory('all');
+                setFilterStock('all');
+              }}
+              className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      
 
       {/* Inventory Table */}
       <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
