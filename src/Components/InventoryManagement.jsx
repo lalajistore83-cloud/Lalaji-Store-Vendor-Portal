@@ -22,33 +22,14 @@ const InventoryManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStock, setFilterStock] = useState('all');
-  const [showStockModal, setShowStockModal] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [stockAdjustment, setStockAdjustment] = useState({
-    type: 'add',
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [editValues, setEditValues] = useState({
     quantity: '',
-    reason: ''
+    operation: 'add'
   });
 
   // Get unique categories from inventory
   const categories = [...new Set(inventory.map(item => item.category).filter(Boolean))];
-
-  const stockReasons = {
-    add: [
-      'New Stock Received',
-      'Return from Customer',
-      'Manual Adjustment',
-      'Damaged Stock Recovery',
-      'Other'
-    ],
-    remove: [
-      'Damaged/Expired',
-      'Sold Out',
-      'Return to Supplier',
-      'Manual Adjustment',
-      'Other'
-    ]
-  };
 
   useEffect(() => {
     fetchInventory();
@@ -134,16 +115,27 @@ const InventoryManagement = () => {
     }
   };
 
-  const handleStockAdjustment = async () => {
+  const handleStockAdjustment = async (product) => {
     try {
-      const quantity = parseInt(stockAdjustment.quantity);
-      const operation = stockAdjustment.type === 'add' ? 'add' : 'subtract';
+      const quantity = parseInt(editValues.quantity);
+      if (!quantity || quantity <= 0) {
+        setError('Please enter a valid quantity');
+        return;
+      }
+
+      const operation = editValues.operation;
+
+      // Validate remove operation
+      if (operation === 'subtract' && quantity > product.currentStock) {
+        setError(`Cannot remove ${quantity} units. Only ${product.currentStock} available.`);
+        return;
+      }
 
       // Call API to update stock
-      const response = await updateVendorProductStock(selectedProduct.vendorProductId, {
+      const response = await updateVendorProductStock(product.vendorProductId, {
         quantity,
         operation,
-        reason: stockAdjustment.reason
+        reason: operation === 'add' ? 'Manual stock addition' : 'Manual stock removal'
       });
 
       if (response.success) {
@@ -151,7 +143,7 @@ const InventoryManagement = () => {
         const newStock = response.data.newStock;
         
         setInventory(inventory.map(item => 
-          item.id === selectedProduct.id 
+          item.id === product.id 
             ? { 
                 ...item, 
                 currentStock: newStock,
@@ -161,9 +153,8 @@ const InventoryManagement = () => {
             : item
         ));
 
-        setShowStockModal(false);
-        setStockAdjustment({ type: 'add', quantity: '', reason: '' });
-        setSelectedProduct(null);
+        setEditingProductId(null);
+        setEditValues({ quantity: '', operation: 'add' });
         
         // Show success message
         setSuccessMessage(`Stock updated successfully! New stock: ${newStock}`);
@@ -172,6 +163,7 @@ const InventoryManagement = () => {
     } catch (err) {
       console.error('Error updating stock:', err);
       setError(err.message || 'Failed to update stock');
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -184,13 +176,13 @@ const InventoryManagement = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'in_stock':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+        return <CheckCircleIcon className="h-4 w-4 text-green-500" />;
       case 'low_stock':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />;
+        return <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500" />;
       case 'out_of_stock':
-        return <ClockIcon className="h-5 w-5 text-red-500" />;
+        return <ClockIcon className="h-4 w-4 text-red-500" />;
       default:
-        return <ClockIcon className="h-5 w-5 text-gray-500" />;
+        return <ClockIcon className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -252,6 +244,45 @@ const InventoryManagement = () => {
 
   return (
     <div className="space-y-4">
+      {/* Success/Error Messages - Fixed at top */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
+          <div className="rounded-lg bg-green-50 p-4 border border-green-200 shadow-lg">
+            <div className="flex items-center">
+              <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
+              <div className="text-sm text-green-700">{successMessage}</div>
+              <button 
+                onClick={() => setSuccessMessage(null)}
+                className="ml-auto text-green-600 hover:text-green-800"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
+          <div className="rounded-lg bg-red-50 p-4 border border-red-200 shadow-lg">
+            <div className="flex items-center">
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-600 mr-3" />
+              <div className="text-sm text-red-700">{error}</div>
+              <button 
+                onClick={() => setError(null)}
+                className="ml-auto text-red-600 hover:text-red-800"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
@@ -365,46 +396,6 @@ const InventoryManagement = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg p-3 border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div className="relative">
-            <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-4 text-gray-400 pl-2.5" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full rounded-lg border-gray-300 pl-8 text-xs focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="block w-full rounded-lg border-gray-300 text-xs focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="all">All Categories</option>
-            {categories.map(category => (
-              <option key={category} value={category}>{category}</option>
-            ))}
-          </select>
-          <select
-            value={filterStock}
-            onChange={(e) => setFilterStock(e.target.value)}
-            className="block w-full rounded-lg border-gray-300 text-xs focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="all">All Stock Levels</option>
-            <option value="in_stock">In Stock</option>
-            <option value="low_stock">Low Stock</option>
-            <option value="out_of_stock">Out of Stock</option>
-          </select>
-          <button className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-            <AdjustmentsHorizontalIcon className="h-3.5 w-3.5 mr-1.5" />
-            Advanced Filters
-          </button>
-        </div>
-      </div>
-
       {/* Inventory Table */}
       <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
         <div className="overflow-x-auto">
@@ -432,7 +423,7 @@ const InventoryManagement = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Restocked
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -495,9 +486,9 @@ const InventoryManagement = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-1">
                       {getStatusIcon(item.status)}
-                      <div className="ml-1.5">{getStatusBadge(item.status)}</div>
+                      {getStatusBadge(item.status)}
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
@@ -507,31 +498,61 @@ const InventoryManagement = () => {
                   <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
                     {formatDate(item.lastRestocked)}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-right text-xs font-medium">
-                    <div className="flex justify-end space-x-1.5">
-                      <button
-                        onClick={() => {
-                          setSelectedProduct(item);
-                          setStockAdjustment({ type: 'add', quantity: '', reason: '' });
-                          setShowStockModal(true);
-                        }}
-                        className="text-green-600 hover:text-green-900"
-                        title="Add Stock"
-                      >
-                        <PlusIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedProduct(item);
-                          setStockAdjustment({ type: 'remove', quantity: '', reason: '' });
-                          setShowStockModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                        title="Remove Stock"
-                      >
-                        <MinusIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <td className="px-4 py-3">
+                    {editingProductId === item.id ? (
+                      // Inline Edit Mode
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={editValues.operation}
+                          onChange={(e) => setEditValues({...editValues, operation: e.target.value})}
+                          className="text-xs border-gray-300 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="add">Add (+)</option>
+                          <option value="subtract">Remove (-)</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="1"
+                          value={editValues.quantity}
+                          onChange={(e) => setEditValues({...editValues, quantity: e.target.value})}
+                          placeholder="Qty"
+                          className="w-20 text-xs border-gray-300 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button
+                          onClick={() => handleStockAdjustment(item)}
+                          disabled={!editValues.quantity}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <CheckCircleIcon className="h-3.5 w-3.5 mr-1" />
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingProductId(null);
+                            setEditValues({ quantity: '', operation: 'add' });
+                          }}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      // View Mode
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingProductId(item.id);
+                            setEditValues({ quantity: '', operation: 'add' });
+                          }}
+                          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
+                        >
+                          <svg className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Update Stock
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))
@@ -541,119 +562,6 @@ const InventoryManagement = () => {
         </div>
       </div>
 
-      {/* Stock Adjustment Modal */}
-      {showStockModal && selectedProduct && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowStockModal(false)}></div>
-            
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-4 pb-4 sm:p-5">
-                <h3 className="text-base font-semibold text-gray-900 mb-3">
-                  {stockAdjustment.type === 'add' ? 'Add Stock' : 'Remove Stock'} - {selectedProduct.name}
-                </h3>
-                
-                <div className="space-y-3">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-xs text-gray-600">Current Stock: <span className="font-medium">{selectedProduct.currentStock}</span></div>
-                    <div className="text-xs text-gray-600">SKU: <span className="font-medium">{selectedProduct.sku}</span></div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700">Adjustment Type</label>
-                    <select
-                      value={stockAdjustment.type}
-                      onChange={(e) => setStockAdjustment({...stockAdjustment, type: e.target.value})}
-                      className="mt-1 block w-full rounded-md border-gray-300 text-xs focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="add">Add Stock</option>
-                      <option value="remove">Remove Stock</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700">Quantity</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max={stockAdjustment.type === 'remove' ? selectedProduct.currentStock : undefined}
-                      value={stockAdjustment.quantity}
-                      onChange={(e) => setStockAdjustment({...stockAdjustment, quantity: e.target.value})}
-                      className="mt-1 block w-full rounded-md border-gray-300 text-xs focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="Enter quantity"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700">Reason</label>
-                    <select
-                      value={stockAdjustment.reason}
-                      onChange={(e) => setStockAdjustment({...stockAdjustment, reason: e.target.value})}
-                      className="mt-1 block w-full rounded-md border-gray-300 text-xs focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="">Select reason</option>
-                      {stockReasons[stockAdjustment.type].map(reason => (
-                        <option key={reason} value={reason}>{reason}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {stockAdjustment.quantity && (
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <div className="text-xs text-blue-700">
-                        New stock level will be: <span className="font-medium">
-                          {stockAdjustment.type === 'add' 
-                            ? selectedProduct.currentStock + parseInt(stockAdjustment.quantity || 0)
-                            : Math.max(0, selectedProduct.currentStock - parseInt(stockAdjustment.quantity || 0))
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 px-4 py-3 sm:px-5 sm:flex sm:flex-row-reverse">
-                <button
-                  onClick={handleStockAdjustment}
-                  disabled={!stockAdjustment.quantity || !stockAdjustment.reason}
-                  className="w-full inline-flex justify-center rounded-lg border border-transparent px-3 py-1.5 bg-blue-600 text-xs font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {stockAdjustment.type === 'add' ? 'Add Stock' : 'Remove Stock'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowStockModal(false);
-                    setStockAdjustment({ type: 'add', quantity: '', reason: '' });
-                    setSelectedProduct(null);
-                  }}
-                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 px-3 py-1.5 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="rounded-md bg-green-50 p-3 border border-green-200">
-          <div className="flex items-center">
-            <CheckCircleIcon className="h-4 w-4 text-green-600 mr-2" />
-            <div className="text-xs text-green-700">{successMessage}</div>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-md bg-red-50 p-3 border border-red-200">
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className="h-4 w-4 text-red-600 mr-2" />
-            <div className="text-xs text-red-700">{error}</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
