@@ -288,7 +288,7 @@ const WalletPayments = () => {
 
       {/* Stats Cards - Compact Design */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-2">
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
           <div className="flex items-center gap-1.5">
             <div className="p-1 bg-green-100 rounded">
               <WalletIcon className="h-3.5 w-3.5 text-green-600" />
@@ -302,7 +302,7 @@ const WalletPayments = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-2">
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
           <div className="flex items-center gap-1.5">
             <div className="p-1 bg-yellow-100 rounded">
               <ClockIcon className="h-3.5 w-3.5 text-yellow-600" />
@@ -316,7 +316,7 @@ const WalletPayments = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-2">
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
           <div className="flex items-center gap-1.5">
             <div className="p-1 bg-blue-100 rounded">
               <BanknotesIcon className="h-3.5 w-3.5 text-blue-600" />
@@ -330,7 +330,7 @@ const WalletPayments = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-2">
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
           <div className="flex items-center gap-1.5">
             <div className="p-1 bg-purple-100 rounded">
               <CalendarDaysIcon className="h-3.5 w-3.5 text-purple-600" />
