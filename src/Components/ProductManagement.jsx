@@ -16,6 +16,7 @@ import {
   Squares2X2Icon
 } from '@heroicons/react/24/outline';
 import { getVendorProducts, getMyVendorProducts, addProduct, updateProduct, deleteProduct, selectProduct, getAvailableProducts } from '../utils/product';
+import { getCategories, getSubcategories } from '../utils/category';
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
@@ -53,16 +54,22 @@ const ProductManagement = () => {
     totalValue: 0
   });
 
+  // Categories and subcategories from API
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     category: '',
+    subcategory: '',
     stock: '',
     images: [],
     status: 'active',
     sku: '',
     weight: '',
+    weightUnit: 'kg',
     dimensions: '',
     // Advanced Pricing
     costPrice: '',
@@ -88,16 +95,10 @@ const ProductManagement = () => {
     seoDescription: ''
   });
 
-  const categories = [
-    'Fruits & Vegetables',
-    'Dairy Products',
-    'Bakery',
-    'Meat & Seafood',
-    'Beverages',
-    'Snacks',
-    'Personal Care',
-    'Household'
-  ];
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   // Fetch status counts on mount
   useEffect(() => {
@@ -127,6 +128,45 @@ const ProductManagement = () => {
       return () => clearTimeout(debounceTimer);
     }
   }, [showModal, modalMode, availablePage, availableSearchTerm]);
+
+  const fetchCategories = async () => {
+    try {
+      console.log('fetchCategories - Fetching categories from API');
+      const response = await getCategories();
+      console.log('fetchCategories - API Response:', response);
+
+      if (response?.success && response?.data) {
+        setCategories(response.data);
+        console.log('fetchCategories - Categories set:', response.data);
+      } else {
+        console.warn('fetchCategories - Unexpected response format:', response);
+        setCategories([]);
+      }
+    } catch (err) {
+      console.error('fetchCategories - Error:', err);
+      setError('Failed to load categories');
+      setCategories([]);
+    }
+  };
+
+  const fetchSubcategories = async (categoryId) => {
+    try {
+      console.log('fetchSubcategories - Fetching subcategories for category:', categoryId);
+      const response = await getSubcategories(categoryId);
+      console.log('fetchSubcategories - API Response:', response);
+
+      if (response?.success && response?.data) {
+        setSubcategories(response.data);
+        console.log('fetchSubcategories - Subcategories set:', response.data);
+      } else {
+        console.warn('fetchSubcategories - Unexpected response format:', response);
+        setSubcategories([]);
+      }
+    } catch (err) {
+      console.error('fetchSubcategories - Error:', err);
+      setSubcategories([]);
+    }
+  };
 
   const fetchStatusCounts = async () => {
     try {
@@ -310,11 +350,13 @@ const ProductManagement = () => {
       description: '',
       price: '',
       category: '',
+      subcategory: '',
       stock: '',
       images: [],
       status: 'active',
       sku: '',
       weight: '',
+      weightUnit: 'kg',
       dimensions: '',
       // Advanced Pricing
       costPrice: '',
@@ -565,7 +607,9 @@ const ProductManagement = () => {
           >
             <option value="all">All Categories</option>
             {categories.map(category => (
-              <option key={category} value={category}>{category}</option>
+              <option key={category._id || category.id} value={category._id || category.id}>
+                {category.name}
+              </option>
             ))}
           </select>
 
@@ -1145,12 +1189,48 @@ const ProductManagement = () => {
                             <select
                               required
                               value={formData.category}
-                              onChange={(e) => setFormData({...formData, category: e.target.value})}
+                              onChange={(e) => {
+                                const selectedCategory = e.target.value;
+                                setFormData({...formData, category: selectedCategory, subcategory: ''});
+
+                                // Fetch subcategories for the selected category
+                                if (selectedCategory) {
+                                  // Find the category object to get its ID
+                                  const categoryObj = categories.find(cat => cat._id === selectedCategory || cat.id === selectedCategory);
+                                  if (categoryObj) {
+                                    fetchSubcategories(categoryObj._id || categoryObj.id);
+                                  }
+                                } else {
+                                  setSubcategories([]);
+                                }
+                              }}
                               className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                             >
                               <option value="">Select category</option>
                               {categories.map(category => (
-                                <option key={category} value={category}>{category}</option>
+                                <option key={category._id || category.id} value={category._id || category.id}>
+                                  {category.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Subcategory */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                              Subcategory
+                            </label>
+                            <select
+                              value={formData.subcategory}
+                              onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              disabled={!formData.category || subcategories.length === 0}
+                            >
+                              <option value="">Select subcategory</option>
+                              {subcategories.map(subcategory => (
+                                <option key={subcategory._id || subcategory.id} value={subcategory._id || subcategory.id}>
+                                  {subcategory.name}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -1191,9 +1271,22 @@ const ProductManagement = () => {
 
                           {/* Unit */}
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Unit</label>
-                            <select className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm bg-gray-50" disabled>
-                              <option>kg</option>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Weight Unit</label>
+                            <select
+                              value={formData.weightUnit}
+                              onChange={(e) => setFormData({...formData, weightUnit: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="kg">Kilogram (kg)</option>
+                              <option value="g">Gram (g)</option>
+                              <option value="mg">Milligram (mg)</option>
+                              <option value="lb">Pound (lb)</option>
+                              <option value="oz">Ounce (oz)</option>
+                              <option value="l">Liter (L)</option>
+                              <option value="ml">Milliliter (ml)</option>
+                              <option value="piece">Piece</option>
+                              <option value="dozen">Dozen</option>
+                              <option value="pack">Pack</option>
                             </select>
                           </div>
 
