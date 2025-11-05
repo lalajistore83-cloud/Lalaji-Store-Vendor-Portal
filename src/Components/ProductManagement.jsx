@@ -44,6 +44,15 @@ const ProductManagement = () => {
   const [availablePage, setAvailablePage] = useState(1);
   const [availableTotalPages, setAvailableTotalPages] = useState(0);
 
+  // Status counts for cards
+  const [statusCounts, setStatusCounts] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    out_of_stock: 0,
+    totalValue: 0
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -54,7 +63,29 @@ const ProductManagement = () => {
     status: 'active',
     sku: '',
     weight: '',
-    dimensions: ''
+    dimensions: '',
+    // Advanced Pricing
+    costPrice: '',
+    suggestedMRP: '',
+    minSellingPrice: '',
+    // Additional Details
+    shortDescription: '',
+    manufacturingDate: '',
+    expiryDate: '',
+    perishable: false,
+    // Nutritional Info (per 100g)
+    calories: '',
+    protein: '',
+    carbohydrates: '',
+    fat: '',
+    fiber: '',
+    sugar: '',
+    sodium: '',
+    tags: [],
+    ingredients: [],
+    // SEO
+    seoTitle: '',
+    seoDescription: ''
   });
 
   const categories = [
@@ -68,10 +99,19 @@ const ProductManagement = () => {
     'Household'
   ];
 
+  // Fetch status counts on mount
+  useEffect(() => {
+    fetchStatusCounts();
+  }, []);
+
   // Debounce search to avoid too many API calls
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       fetchProducts();
+      // Refresh status counts when products change (but not on every page change)
+      if (currentPage === 1) {
+        fetchStatusCounts();
+      }
     }, searchTerm ? 500 : 0); // 500ms delay for search, immediate for other changes
 
     return () => clearTimeout(debounceTimer);
@@ -87,6 +127,32 @@ const ProductManagement = () => {
       return () => clearTimeout(debounceTimer);
     }
   }, [showModal, modalMode, availablePage, availableSearchTerm]);
+
+  const fetchStatusCounts = async () => {
+    try {
+      // Fetch counts for each status separately
+      const [allResponse, activeResponse, inactiveResponse, outOfStockResponse] = await Promise.all([
+        getVendorProducts({ limit: 1, status: 'all' }),
+        getVendorProducts({ limit: 1, status: 'active' }),
+        getVendorProducts({ limit: 1, status: 'inactive' }),
+        getVendorProducts({ limit: 1, status: 'out_of_stock' })
+      ]);
+
+      // Calculate total value by fetching all products (or use a summary endpoint if available)
+      const allProductsResponse = await getVendorProducts({ limit: 1000, status: 'all' });
+      const totalValue = allProductsResponse?.data?.reduce((sum, p) => sum + (p.pricing?.sellingPrice || 0), 0) || 0;
+
+      setStatusCounts({
+        total: allResponse?.total || 0,
+        active: activeResponse?.total || 0,
+        inactive: inactiveResponse?.total || 0,
+        out_of_stock: outOfStockResponse?.total || 0,
+        totalValue: totalValue
+      });
+    } catch (err) {
+      console.error('fetchStatusCounts - Error:', err);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -249,7 +315,29 @@ const ProductManagement = () => {
       status: 'active',
       sku: '',
       weight: '',
-      dimensions: ''
+      dimensions: '',
+      // Advanced Pricing
+      costPrice: '',
+      suggestedMRP: '',
+      minSellingPrice: '',
+      // Additional Details
+      shortDescription: '',
+      manufacturingDate: '',
+      expiryDate: '',
+      perishable: false,
+      // Nutritional Info
+      calories: '',
+      protein: '',
+      carbohydrates: '',
+      fat: '',
+      fiber: '',
+      sugar: '',
+      sodium: '',
+      tags: [],
+      ingredients: [],
+      // SEO
+      seoTitle: '',
+      seoDescription: ''
     });
     setEditingProduct(null);
     setModalMode('add');
@@ -325,21 +413,21 @@ const ProductManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-3">
+      {/* Header - Super Compact */}
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-bold text-gray-900">Product Management</h1>
+          <p className="mt-0.5 text-xs text-gray-500">
             Manage your product inventory and listings
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 flex gap-3">
+        <div className="mt-2 sm:mt-0 flex gap-2">
           <button
             onClick={handleOpenSelectProduct}
-            className="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500"
+            className="inline-flex items-center rounded-md bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-500"
           >
-            <CheckCircleIcon className="h-4 w-4 mr-2" />
+            <CheckCircleIcon className="h-3.5 w-3.5 mr-1.5" />
             Select Product
           </button>
           <button
@@ -347,26 +435,113 @@ const ProductManagement = () => {
               setModalMode('add');
               setShowModal(true);
             }}
-            className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+            className="inline-flex items-center rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500"
           >
-            <PlusIcon className="h-4 w-4 mr-2" />
+            <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
             Add Product
           </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="flex flex-wrap items-center gap-3">
+      {/* Status Cards - Super Compact */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {/* Total Items */}
+        <button
+          onClick={() => {
+            setFilterStatus('all');
+            setCurrentPage(1);
+          }}
+          className={`bg-white rounded-lg shadow-sm p-3 hover:shadow transition-all text-left ${
+            filterStatus === 'all' ? 'ring-2 ring-blue-500' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-600">Total Items</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">{statusCounts.total}</p>
+            </div>
+            <div className="bg-blue-100 rounded-lg p-2">
+              <CubeIcon className="h-5 w-5 text-blue-600" />
+            </div>
+          </div>
+        </button>
+
+        {/* In Stock */}
+        <button
+          onClick={() => {
+            setFilterStatus('active');
+            setCurrentPage(1);
+          }}
+          className={`bg-white rounded-lg shadow-sm p-3 hover:shadow transition-all text-left ${
+            filterStatus === 'active' ? 'ring-2 ring-green-500' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-600">In Stock</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">{statusCounts.active}</p>
+            </div>
+            <div className="bg-green-100 rounded-lg p-2">
+              <CheckCircleIcon className="h-5 w-5 text-green-600" />
+            </div>
+          </div>
+        </button>
+
+        {/* Low Stock */}
+        <button
+          onClick={() => {
+            setFilterStatus('inactive');
+            setCurrentPage(1);
+          }}
+          className={`bg-white rounded-lg shadow-sm p-3 hover:shadow transition-all text-left ${
+            filterStatus === 'inactive' ? 'ring-2 ring-yellow-500' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-600">Low Stock</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">{statusCounts.inactive}</p>
+            </div>
+            <div className="bg-yellow-100 rounded-lg p-2">
+              <XCircleIcon className="h-5 w-5 text-yellow-600" />
+            </div>
+          </div>
+        </button>
+
+        {/* Out of Stock */}
+        <button
+          onClick={() => {
+            setFilterStatus('out_of_stock');
+            setCurrentPage(1);
+          }}
+          className={`bg-white rounded-lg shadow-sm p-3 hover:shadow transition-all text-left ${
+            filterStatus === 'out_of_stock' ? 'ring-2 ring-red-500' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-600">Out of Stock</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">{statusCounts.out_of_stock}</p>
+            </div>
+            <div className="bg-red-100 rounded-lg p-2">
+              <XCircleIcon className="h-5 w-5 text-red-600" />
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Filters - Super Compact */}
+      <div className="bg-white shadow-sm rounded-lg p-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-gray-400 pl-3" />
+          <div className="relative flex-1 min-w-[180px]">
+            <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-4 text-gray-400 pl-2" />
             <input
               type="text"
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="block w-full rounded-lg border-gray-300 pl-10 py-2 focus:border-blue-500 focus:ring-blue-500 text-sm"
+              className="block w-full rounded-md border-gray-300 pl-8 py-1.5 focus:border-blue-500 focus:ring-blue-500 text-xs"
             />
           </div>
 
@@ -374,7 +549,7 @@ const ProductManagement = () => {
           <select
             value={filterStatus}
             onChange={(e) => handleStatusChange(e.target.value)}
-            className="rounded-lg border-gray-300 py-2 px-3 focus:border-blue-500 focus:ring-blue-500 text-sm"
+            className="rounded-md border-gray-300 py-1.5 px-2 focus:border-blue-500 focus:ring-blue-500 text-xs"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -386,7 +561,7 @@ const ProductManagement = () => {
           <select
             value={filterCategory}
             onChange={(e) => handleCategoryChange(e.target.value)}
-            className="rounded-lg border-gray-300 py-2 px-3 focus:border-blue-500 focus:ring-blue-500 text-sm"
+            className="rounded-md border-gray-300 py-1.5 px-2 focus:border-blue-500 focus:ring-blue-500 text-xs"
           >
             <option value="all">All Categories</option>
             {categories.map(category => (
@@ -395,33 +570,33 @@ const ProductManagement = () => {
           </select>
 
           {/* More Filters Button */}
-          <button className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <FunnelIcon className="h-4 w-4 mr-1.5" />
-            More Filters
+          <button className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            <FunnelIcon className="h-3.5 w-3.5 mr-1" />
+            More
           </button>
 
           {/* View Toggle Buttons */}
-          <div className="ml-auto inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
+          <div className="ml-auto inline-flex rounded-md border border-gray-300 bg-white p-0.5">
             <button
               onClick={() => setViewMode('list')}
-              className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium transition-colors ${
                 viewMode === 'list'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <TableCellsIcon className="h-4 w-4 mr-1.5" />
+              <TableCellsIcon className="h-3.5 w-3.5 mr-1" />
               List
             </button>
             <button
               onClick={() => setViewMode('cards')}
-              className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium transition-colors ${
                 viewMode === 'cards'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <Squares2X2Icon className="h-4 w-4 mr-1.5" />
+              <Squares2X2Icon className="h-3.5 w-3.5 mr-1" />
               Cards
             </button>
           </div>
@@ -430,31 +605,31 @@ const ProductManagement = () => {
 
       {/* Products View - List or Cards */}
       {viewMode === 'list' ? (
-        /* List View - Table */
-        <div className="bg-white shadow rounded-lg overflow-hidden">
+        /* List View - Table - Super Compact */
+        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Product
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Price
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Stock
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Approval
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
                     Actions
                   </th>
                 </tr>
@@ -467,49 +642,49 @@ const ProductManagement = () => {
 
                   return (
                   <tr key={product._id || product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-12">
+                        <div className="flex-shrink-0 h-8 w-8">
                           {product.images && product.images.length > 0 ? (
                             <img
-                              className="h-12 w-12 rounded-lg object-cover"
+                              className="h-8 w-8 rounded-md object-cover"
                               src={product.images[0]?.url || product.images[0]}
                               alt={product.images[0]?.altText || product.name}
                             />
                           ) : (
-                            <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                              <PhotoIcon className="h-6 w-6 text-gray-400" />
+                            <div className="h-8 w-8 rounded-md bg-gray-100 flex items-center justify-center">
+                              <PhotoIcon className="h-4 w-4 text-gray-400" />
                             </div>
                           )}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{product.name || 'N/A'}</div>
-                          <div className="text-sm text-gray-500">{product.sku || 'N/A'}</div>
+                        <div className="ml-2">
+                          <div className="text-xs font-medium text-gray-900">{product.name || 'N/A'}</div>
+                          <div className="text-xs text-gray-500">{product.sku || 'N/A'}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center">
-                        <TagIcon className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-900">
+                        <TagIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
+                        <span className="text-xs text-gray-900">
                           {product.category?.name || product.category || 'N/A'}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                       ₹{price}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center">
-                        <CubeIcon className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-500">N/A</span>
+                        <CubeIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
+                        <span className="text-xs text-gray-500">N/A</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       {getStatusBadge(product.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                         approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
                         approvalStatus === 'rejected' ? 'bg-red-100 text-red-800' :
                         'bg-yellow-100 text-yellow-800'
@@ -517,22 +692,22 @@ const ProductManagement = () => {
                         {approvalStatus}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
+                    <td className="px-3 py-2 whitespace-nowrap text-right text-xs font-medium">
+                      <div className="flex justify-end space-x-1.5">
                         <button
                           onClick={() => handleEdit(product)}
                           className="text-blue-600 hover:text-blue-900"
                         >
-                          <PencilIcon className="h-4 w-4" />
+                          <PencilIcon className="h-3.5 w-3.5" />
                         </button>
                         <button className="text-gray-600 hover:text-gray-900">
-                          <EyeIcon className="h-4 w-4" />
+                          <EyeIcon className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(product._id || product.id)}
                           className="text-red-600 hover:text-red-900"
                         >
-                          <TrashIcon className="h-4 w-4" />
+                          <TrashIcon className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
@@ -543,27 +718,27 @@ const ProductManagement = () => {
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+          {/* Pagination - Super Compact */}
+          <div className="bg-white px-3 py-2 flex items-center justify-between border-t border-gray-200">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="ml-2 relative inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
                 Next
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-gray-700">
+                <p className="text-xs text-gray-700">
                   Showing{' '}
                   <span className="font-medium">{totalProducts > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span>
                   {' '}to{' '}
@@ -581,7 +756,7 @@ const ProductManagement = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                      className={`relative inline-flex items-center px-2.5 py-1 border text-xs font-medium ${
                         page === currentPage
                           ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                           : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
@@ -596,18 +771,18 @@ const ProductManagement = () => {
           </div>
         </div>
       ) : (
-        /* Card View - Grid */
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        /* Card View - Grid - Super Compact */
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {currentProducts.map((product) => {
               // Product model structure from /vendor/products endpoint
               const price = product.pricing?.sellingPrice || 0;
               const approvalStatus = product.approvalStatus?.status || 'pending';
 
               return (
-                <div key={product._id || product.id} className="bg-white shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                <div key={product._id || product.id} className="bg-white shadow-sm rounded-lg overflow-hidden hover:shadow transition-shadow">
                   {/* Product Image */}
-                  <div className="relative h-48 bg-gray-100">
+                  <div className="relative h-32 bg-gray-100">
                     {product.images && product.images.length > 0 ? (
                       <img
                         className="w-full h-full object-cover"
@@ -616,42 +791,42 @@ const ProductManagement = () => {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <PhotoIcon className="h-16 w-16 text-gray-400" />
+                        <PhotoIcon className="h-10 w-10 text-gray-400" />
                       </div>
                     )}
                     {/* Status Badge */}
-                    <div className="absolute top-3 right-3">
+                    <div className="absolute top-2 right-2">
                       {getStatusBadge(product.status)}
                     </div>
                   </div>
 
                   {/* Product Details */}
-                  <div className="p-4">
-                    <div className="mb-3">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{product.name || 'N/A'}</h3>
-                      <p className="text-sm text-gray-500">{product.sku || 'N/A'}</p>
+                  <div className="p-2.5">
+                    <div className="mb-2">
+                      <h3 className="text-xs font-semibold text-gray-900 mb-0.5 truncate">{product.name || 'N/A'}</h3>
+                      <p className="text-xs text-gray-500">{product.sku || 'N/A'}</p>
                     </div>
 
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center justify-between text-sm">
+                    <div className="space-y-1.5 mb-2">
+                      <div className="flex items-center justify-between text-xs">
                         <span className="flex items-center text-gray-600">
-                          <TagIcon className="h-4 w-4 mr-1.5" />
+                          <TagIcon className="h-3 w-3 mr-1" />
                           {product.category?.name || product.category || 'N/A'}
                         </span>
-                        <span className="text-lg font-bold text-gray-900">₹{price}</span>
+                        <span className="text-sm font-bold text-gray-900">₹{price}</span>
                       </div>
 
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between text-xs">
                         <span className="flex items-center text-gray-600">
-                          <CubeIcon className="h-4 w-4 mr-1.5" />
+                          <CubeIcon className="h-3 w-3 mr-1" />
                           Stock:
                         </span>
-                        <span className="text-sm text-gray-500">N/A</span>
+                        <span className="text-xs text-gray-500">N/A</span>
                       </div>
 
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-600">Approval:</span>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
                           approvalStatus === 'rejected' ? 'bg-red-100 text-red-800' :
                           'bg-yellow-100 text-yellow-800'
@@ -662,24 +837,24 @@ const ProductManagement = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex space-x-2 pt-3 border-t border-gray-200">
+                    <div className="flex space-x-1.5 pt-2 border-t border-gray-200">
                       <button
                         onClick={() => handleEdit(product)}
-                        className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                        className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
                       >
-                        <PencilIcon className="h-4 w-4 mr-1.5" />
+                        <PencilIcon className="h-3 w-3 mr-1" />
                         Edit
                       </button>
                       <button
-                        className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                        className="inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
                       >
-                        <EyeIcon className="h-4 w-4" />
+                        <EyeIcon className="h-3 w-3" />
                       </button>
                       <button
                         onClick={() => handleDelete(product._id || product.id)}
-                        className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-red-600 bg-white hover:bg-red-50"
+                        className="inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-red-600 bg-white hover:bg-red-50"
                       >
-                        <TrashIcon className="h-4 w-4" />
+                        <TrashIcon className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
@@ -688,27 +863,27 @@ const ProductManagement = () => {
             })}
           </div>
 
-          {/* Pagination for Card View */}
-          <div className="bg-white shadow rounded-lg px-4 py-3 flex items-center justify-between sm:px-6">
+          {/* Pagination for Card View - Super Compact */}
+          <div className="bg-white shadow-sm rounded-lg px-3 py-2 flex items-center justify-between">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="ml-2 relative inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
               >
                 Next
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-gray-700">
+                <p className="text-xs text-gray-700">
                   Showing{' '}
                   <span className="font-medium">{totalProducts > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span>
                   {' '}to{' '}
@@ -726,7 +901,7 @@ const ProductManagement = () => {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                      className={`relative inline-flex items-center px-2.5 py-1 border text-xs font-medium ${
                         page === currentPage
                           ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                           : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
@@ -748,10 +923,10 @@ const ProductManagement = () => {
           <div className="flex items-center justify-center min-h-screen px-4 py-8">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowModal(false)}></div>
 
-            <div className={`relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full ${modalMode === 'select' ? 'max-w-4xl' : 'max-w-4xl'}`}>
+            <div className={`relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full ${modalMode === 'select' ? 'max-w-4xl' : 'max-w-7xl'}`}>
               <form onSubmit={handleSubmit}>
-                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                <div className="bg-white px-8 pt-4 pb-3">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
                     {modalMode === 'select' ? 'Select Product' : editingProduct ? 'Edit Product' : 'Add New Product'}
                   </h3>
 
@@ -906,23 +1081,23 @@ const ProductManagement = () => {
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       {/* Essential Information Section */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-5">
-                        <div className="flex items-start mb-5">
-                          <div className="bg-green-600 rounded-lg p-2 mr-3">
-                            <CubeIcon className="h-5 w-5 text-white" />
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center mb-3">
+                          <div className="bg-green-600 rounded-lg p-1.5 mr-2.5">
+                            <CubeIcon className="h-4 w-4 text-white" />
                           </div>
                           <div>
-                            <h3 className="text-base font-semibold text-gray-900">Essential Information</h3>
-                            <p className="text-sm text-gray-500 mt-0.5">Required fields to create your product</p>
+                            <h3 className="text-sm font-semibold text-gray-900">Essential Information</h3>
+                            <p className="text-xs text-gray-500">Required fields to create your product</p>
                           </div>
                         </div>
 
-                        <div className="space-y-5">
+                        <div className="grid grid-cols-4 gap-3">
                           {/* Product Name */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
                               Product Name <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -930,23 +1105,23 @@ const ProductManagement = () => {
                               required
                               value={formData.name}
                               onChange={(e) => setFormData({...formData, name: e.target.value})}
-                              className="block w-full px-4 py-2.5 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                               placeholder="Enter product name"
                             />
                           </div>
 
                           {/* SKU (Auto-generated option) */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
                               SKU <span className="text-red-500">*</span>
                             </label>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2">
                               <input
                                 type="text"
                                 required
                                 value={formData.sku}
                                 onChange={(e) => setFormData({...formData, sku: e.target.value})}
-                                className="block w-full px-4 py-2.5 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                                 placeholder="e.g., APL-ORG-001"
                               />
                               <button
@@ -955,138 +1130,425 @@ const ProductManagement = () => {
                                   const randomSKU = `SKU-${Date.now().toString().slice(-6)}`;
                                   setFormData({...formData, sku: randomSKU});
                                 }}
-                                className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 whitespace-nowrap transition-colors"
+                                className="px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 whitespace-nowrap transition-colors"
                               >
                                 Auto
                               </button>
                             </div>
                           </div>
 
-                          {/* Weight and Unit */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Weight</label>
+                          {/* Category */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                              Category <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              required
+                              value={formData.category}
+                              onChange={(e) => setFormData({...formData, category: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="">Select category</option>
+                              {categories.map(category => (
+                                <option key={category} value={category}>{category}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Selling Price */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                              Selling Price (₹) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
                               <input
                                 type="number"
+                                required
                                 min="0"
                                 step="0.01"
-                                value={formData.weight}
-                                onChange={(e) => setFormData({...formData, weight: e.target.value})}
-                                className="block w-full px-4 py-2.5 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                value={formData.price}
+                                onChange={(e) => setFormData({...formData, price: e.target.value})}
+                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                                 placeholder="0.00"
                               />
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Unit</label>
-                              <select className="block w-full px-4 py-2.5 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm bg-gray-50" disabled>
-                                <option>kg</option>
-                              </select>
-                            </div>
                           </div>
 
-                          {/* Category and Selling Price */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Category <span className="text-red-500">*</span>
-                              </label>
-                              <select
-                                required
-                                value={formData.category}
-                                onChange={(e) => setFormData({...formData, category: e.target.value})}
-                                className="block w-full px-4 py-2.5 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                              >
-                                <option value="">Select category</option>
-                                {categories.map(category => (
-                                  <option key={category} value={category}>{category}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Selling Price (₹) <span className="text-red-500">*</span>
-                              </label>
-                              <div className="relative">
-                                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 text-sm font-medium">₹</span>
-                                <input
-                                  type="number"
-                                  required
-                                  min="0"
-                                  step="0.01"
-                                  value={formData.price}
-                                  onChange={(e) => setFormData({...formData, price: e.target.value})}
-                                  className="block w-full pl-9 pr-4 py-2.5 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                  placeholder="0.00"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Product Description */}
+                          {/* Weight */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Product Description</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Weight</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={formData.weight}
+                              onChange={(e) => setFormData({...formData, weight: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              placeholder="0.00"
+                            />
+                          </div>
+
+                          {/* Unit */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Unit</label>
+                            <select className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm bg-gray-50" disabled>
+                              <option>kg</option>
+                            </select>
+                          </div>
+
+                          {/* Dimensions */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Dimensions</label>
+                            <input
+                              type="text"
+                              value={formData.dimensions}
+                              onChange={(e) => setFormData({...formData, dimensions: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              placeholder="L x W x H"
+                            />
+                          </div>
+
+                          {/* Status */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Status</label>
+                            <select
+                              value={formData.status}
+                              onChange={(e) => setFormData({...formData, status: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                              <option value="pending_approval">Pending Approval</option>
+                            </select>
+                          </div>
+
+                          {/* Product Images */}
+                          <div className="col-span-4">
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Product Images</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files);
+                                  setFormData({...formData, images: files});
+                                }}
+                                className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:transition-colors"
+                              />
+                              {formData.images.length > 0 && (
+                                <span className="text-xs text-gray-600 whitespace-nowrap">{formData.images.length} file{formData.images.length > 1 ? 's' : ''}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Product Description - Full Width */}
+                          <div className="col-span-4">
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Product Description</label>
                             <textarea
-                              rows={3}
+                              rows={2}
                               value={formData.description}
                               onChange={(e) => setFormData({...formData, description: e.target.value})}
-                              className="block w-full px-4 py-2.5 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
                               placeholder="Brief description of your product..."
                             />
                           </div>
                         </div>
                       </div>
 
-                      {/* Info Note */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0 mt-0.5">
-                            <CheckCircleIcon className="h-5 w-5 text-blue-600" />
+                      {/* Advanced Pricing Section */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center mb-3">
+                          <div className="bg-gray-600 rounded-lg p-1.5 mr-2.5">
+                            <TagIcon className="h-4 w-4 text-white" />
                           </div>
-                          <div className="ml-3">
-                            <h4 className="text-sm font-semibold text-blue-900">Approval Process</h4>
-                            <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">Advanced Pricing</h3>
+                            <p className="text-xs text-gray-500">Discounts and master pricing controls</p>
+                          </div>
+                          <span className="ml-auto text-xs text-gray-400">0% complete</span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* Cost Price */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Cost Price</label>
+                            <div className="relative">
+                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={formData.costPrice}
+                                onChange={(e) => setFormData({...formData, costPrice: e.target.value})}
+                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Suggested MRP */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Suggested MRP</label>
+                            <div className="relative">
+                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={formData.suggestedMRP}
+                                onChange={(e) => setFormData({...formData, suggestedMRP: e.target.value})}
+                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Min Selling Price */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Min Selling Price</label>
+                            <div className="relative">
+                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={formData.minSellingPrice}
+                                onChange={(e) => setFormData({...formData, minSellingPrice: e.target.value})}
+                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Additional Details Section */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center mb-3">
+                          <div className="bg-gray-600 rounded-lg p-1.5 mr-2.5">
+                            <ClockIcon className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">Additional Details</h3>
+                            <p className="text-xs text-gray-500">Nutritional info, ingredients, dates</p>
+                          </div>
+                          <span className="ml-auto text-xs text-gray-400">0% complete</span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {/* Short Description, Manufacturing Date, Expiry Date, Perishable */}
+                          <div className="grid grid-cols-4 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Short Description</label>
+                              <input
+                                type="text"
+                                value={formData.shortDescription}
+                                onChange={(e) => setFormData({...formData, shortDescription: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="Brief summary..."
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Manufacturing Date</label>
+                              <input
+                                type="date"
+                                value={formData.manufacturingDate}
+                                onChange={(e) => setFormData({...formData, manufacturingDate: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Expiry Date</label>
+                              <input
+                                type="date"
+                                value={formData.expiryDate}
+                                onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+
+                            <div className="flex items-end">
+                              <label className="flex items-center cursor-pointer pb-2">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.perishable}
+                                  onChange={(e) => setFormData({...formData, perishable: e.target.checked})}
+                                  className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                                />
+                                <span className="ml-2 text-xs font-medium text-gray-700">Perishable</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Nutritional Info (per 100g) */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Nutritional Info (per 100g)</label>
+                            <div className="grid grid-cols-6 gap-3">
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.calories}
+                                onChange={(e) => setFormData({...formData, calories: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="Calories"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.protein}
+                                onChange={(e) => setFormData({...formData, protein: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="Protein"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.carbohydrates}
+                                onChange={(e) => setFormData({...formData, carbohydrates: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="Carbohydrates"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.fat}
+                                onChange={(e) => setFormData({...formData, fat: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="Fat"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.fiber}
+                                onChange={(e) => setFormData({...formData, fiber: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="Fiber"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.sugar}
+                                onChange={(e) => setFormData({...formData, sugar: e.target.value})}
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                placeholder="Sugar"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Tags and Ingredients */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Tags</label>
+                              <input
+                                type="text"
+                                placeholder="Add tag..."
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Ingredients</label>
+                              <input
+                                type="text"
+                                placeholder="Add ingredient..."
+                                className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SEO & Optimization Section */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center mb-3">
+                          <div className="bg-green-600 rounded-lg p-1.5 mr-2.5">
+                            <MagnifyingGlassIcon className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">SEO & Optimization</h3>
+                            <p className="text-xs text-gray-500">Search optimization (Free delivery included)</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          {/* SEO Title */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">SEO Title</label>
+                            <input
+                              type="text"
+                              value={formData.seoTitle}
+                              onChange={(e) => setFormData({...formData, seoTitle: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              placeholder="SEO optimized title"
+                            />
+                          </div>
+
+                          {/* SEO Description */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">SEO Description</label>
+                            <textarea
+                              rows={2}
+                              value={formData.seoDescription}
+                              onChange={(e) => setFormData({...formData, seoDescription: e.target.value})}
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
+                              placeholder="SEO meta description..."
+                              maxLength={160}
+                            />
+                            <div className="mt-1 text-xs text-gray-500 text-right">
+                              {formData.seoDescription.length}/160
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Info Note */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <CheckCircleIcon className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div className="ml-2.5">
+                            <h4 className="text-xs font-semibold text-blue-900">Approval Process</h4>
+                            <p className="text-xs text-blue-700 mt-0.5">
                               Your product will be submitted for approval by the admin. Once approved, you can select it and add inventory through "Select Product" to start selling.
                             </p>
                           </div>
                         </div>
                       </div>
-
-                      {/* Progress Indicator */}
-                      <div className="flex items-center justify-start">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                          Essential: {formData.name && formData.sku && formData.category && formData.price ? '100%' : '0%'}
-                        </span>
-                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-white px-6 py-4 flex items-center justify-between border-t border-gray-200">
+                <div className="bg-white px-8 py-3 flex items-center justify-between border-t border-gray-200">
                   <div className="flex items-center text-xs text-gray-500">
                     {modalMode === 'add' && (
-                      <span className="inline-flex items-center gap-2">
-                        <span className={`inline-block w-2 h-2 rounded-full ${
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${
                           formData.name && formData.sku && formData.category && formData.price ? 'bg-green-500' : 'bg-yellow-500'
                         }`}></span>
-                        <span className="font-medium">Essential: {formData.name && formData.sku && formData.category && formData.price ? '100%' : '0%'}</span>
+                        <span className="font-medium text-xs">Essential: {formData.name && formData.sku && formData.category && formData.price ? '100%' : '0%'}</span>
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-2.5">
                     <button
                       type="button"
                       onClick={() => {
                         setShowModal(false);
                         resetForm();
                       }}
-                      className="inline-flex justify-center items-center rounded-md border border-gray-300 px-5 py-2.5 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                      className="inline-flex justify-center items-center rounded-md border border-gray-300 px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={modalMode === 'select' && !selectedProductForSelection}
-                      className="inline-flex justify-center items-center rounded-md px-6 py-2.5 bg-green-600 text-sm font-semibold text-white hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                      className="inline-flex justify-center items-center rounded-md px-5 py-2 bg-green-600 text-sm font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                     >
                       {modalMode === 'select' ? 'Select Product' : editingProduct ? 'Update Product' : 'Save Product'}
                     </button>
