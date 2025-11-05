@@ -69,6 +69,15 @@ class NotificationService {
 
   // Connect to SSE endpoint
   connect(vendorId) {
+    console.log('🔌🔌🔌 CONNECT METHOD CALLED! 🔌🔌🔌');
+    console.log('📋 Vendor ID:', vendorId);
+    console.log('📋 Current connection state:', {
+      hasEventSource: !!this.eventSource,
+      isConnected: this.isConnected,
+      isDisconnecting: this.isDisconnecting,
+      readyState: this.eventSource?.readyState
+    });
+    
     // Clear any pending connection timeouts
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
@@ -104,11 +113,17 @@ class NotificationService {
     }
 
     const token = localStorage.getItem('vendor_token');
+    console.log('🔑 Token check:', token ? 'Token found ✅' : 'Token missing ❌');
+    console.log('🔑 Token length:', token?.length);
+    
     if (!token) {
-      console.error('No authentication token found');
+      console.error('❌❌❌ NO AUTHENTICATION TOKEN FOUND! ❌❌❌');
+      console.error('🔍 localStorage keys:', Object.keys(localStorage));
       return;
     }
 
+    console.log('🌐 API_BASE_URL:', API_BASE_URL);
+    
     try {
       // Create SSE connection with token in URL
       const url = `${API_BASE_URL}/vendor/orders/stream?token=${encodeURIComponent(token)}`;
@@ -117,39 +132,57 @@ class NotificationService {
 
       this.eventSource.onopen = () => {
         console.log('✅ SSE Connection established');
+        console.log('📊 EventSource readyState:', this.eventSource.readyState);
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.notifyListeners('connected', { status: 'connected' });
       };
 
       this.eventSource.onmessage = (event) => {
+        console.log('📨 RAW SSE MESSAGE received');
+        console.log('📦 Event type:', event.type);
+        console.log('📦 Event data:', event.data);
+        console.log('📦 Event lastEventId:', event.lastEventId);
+        console.log('📦 Event origin:', event.origin);
+        
         try {
           const data = JSON.parse(event.data);
-          console.log('📨 SSE Message received:', data);
+          console.log('✅ Parsed SSE data:', JSON.stringify(data, null, 2));
           
           if (data.type === 'heartbeat') {
-            // Ignore heartbeat messages
+            console.log('💓 Heartbeat received - connection alive');
             return;
           }
           
           // Notify all listeners
           this.notifyListeners('message', data);
+          console.log('🔔 Notified listeners for:', data.type);
         } catch (error) {
-          console.error('Error parsing SSE message:', error);
+          console.error('❌ Error parsing SSE message:', error);
+          console.error('❌ Raw data that failed to parse:', event.data);
         }
       };
 
       // Handle specific event types
       this.eventSource.addEventListener('new_order', (event) => {
+        console.log('🆕🆕🆕 NEW ORDER EVENT RECEIVED! 🆕🆕🆕');
+        console.log('📦 Raw event.data:', event.data);
+        console.log('📦 Event type:', event.type);
+        
         try {
           const order = JSON.parse(event.data);
-          console.log('🆕 New order received:', order);
+          console.log('✅ Parsed order data:', JSON.stringify(order, null, 2));
+          console.log('📋 Order ID:', order._id);
+          console.log('📋 Order Number:', order.orderNumber);
+          console.log('💰 Total Amount:', order.totalAmount);
           
           // Play notification sound
           this.playNotificationSound();
+          console.log('🔊 Notification sound played');
           
           // Notify listeners
           this.notifyListeners('new_order', order);
+          console.log('🔔 Listeners notified for new_order event');
           
           // Show browser notification if permitted
           this.showBrowserNotification('New Order Received!', {
@@ -157,23 +190,35 @@ class NotificationService {
             icon: '/logo.png',
             tag: order._id
           });
+          console.log('🌐 Browser notification shown');
         } catch (error) {
-          console.error('Error handling new order:', error);
+          console.error('❌ Error handling new order:', error);
+          console.error('❌ Failed to parse data:', event.data);
         }
       });
 
       this.eventSource.addEventListener('order_updated', (event) => {
+        console.log('🔄🔄🔄 ORDER UPDATE EVENT RECEIVED! 🔄🔄🔄');
+        console.log('📦 Raw event.data:', event.data);
+        
         try {
           const order = JSON.parse(event.data);
-          console.log('🔄 Order updated:', order);
+          console.log('✅ Parsed order update:', JSON.stringify(order, null, 2));
           this.notifyListeners('order_updated', order);
+          console.log('🔔 Listeners notified for order_updated event');
         } catch (error) {
-          console.error('Error handling order update:', error);
+          console.error('❌ Error handling order update:', error);
+          console.error('❌ Failed to parse data:', event.data);
         }
       });
 
       this.eventSource.onerror = (error) => {
-        console.error('❌ SSE Connection error:', error);
+        console.error('❌❌❌ SSE CONNECTION ERROR! ❌❌❌');
+        console.error('📦 Error event:', error);
+        console.error('📊 EventSource readyState:', this.eventSource?.readyState);
+        console.error('📊 EventSource url:', this.eventSource?.url?.replace(/token=[^&]+/, 'token=***'));
+        console.error('🔌 Was connected:', this.isConnected);
+        
         const wasConnected = this.isConnected;
         this.isConnected = false;
         this.notifyListeners('error', { error: 'Connection error' });

@@ -66,13 +66,22 @@ const OrderManagement = () => {
 
   // Setup SSE connection for real-time updates
   const setupSSEConnection = () => {
+    console.log('🔧🔧🔧 SETUP SSE CONNECTION CALLED! 🔧🔧🔧');
+    
     // Request notification permission first
     notificationService.requestNotificationPermission();
 
     // Connect to SSE
     const vendorData = JSON.parse(localStorage.getItem('vendor_user') || '{}');
+    console.log('📋 Vendor data from localStorage:', vendorData);
+    console.log('📋 Vendor ID:', vendorData._id);
+    
     if (vendorData._id) {
+      console.log('✅ Vendor ID found, calling notificationService.connect...');
       notificationService.connect(vendorData._id);
+    } else {
+      console.error('❌ No vendor ID found in localStorage!');
+      console.error('❌ localStorage vendor_user:', localStorage.getItem('vendor_user'));
     }
 
     // Listen for connection status
