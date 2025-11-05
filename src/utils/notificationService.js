@@ -11,6 +11,8 @@ class NotificationService {
     this.isConnected = false;
     this.audioContext = null;
     this.notificationSound = null;
+    this.isDisconnecting = false; // Flag to prevent connection during disconnect
+    this.connectionTimeout = null; // Timeout for delayed reconnection
   }
 
   // Initialize audio for notification sound
@@ -67,8 +69,38 @@ class NotificationService {
 
   // Connect to SSE endpoint
   connect(vendorId) {
+    // Clear any pending connection timeouts
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
+    // Don't connect if we're in the process of disconnecting
+    if (this.isDisconnecting) {
+      console.log('⏳ Waiting for disconnect to complete before reconnecting');
+      this.connectionTimeout = setTimeout(() => {
+        this.isDisconnecting = false;
+        this.connect(vendorId);
+      }, 500);
+      return;
+    }
+
+    // If already connected and working, don't reconnect
+    if (this.eventSource && this.isConnected && this.eventSource.readyState === EventSource.OPEN) {
+      console.log('✅ SSE already connected, skipping reconnection');
+      return;
+    }
+
+    // If there's an existing connection but not connected, disconnect it first
     if (this.eventSource) {
+      console.log('🔄 Closing existing SSE connection before reconnecting');
       this.disconnect();
+      
+      // Wait a bit before reconnecting to avoid race conditions
+      this.connectionTimeout = setTimeout(() => {
+        this.connect(vendorId);
+      }, 500);
+      return;
     }
 
     const token = localStorage.getItem('vendor_token');
@@ -80,6 +112,7 @@ class NotificationService {
     try {
       // Create SSE connection with token in URL
       const url = `${API_BASE_URL}/vendor/orders/stream?token=${encodeURIComponent(token)}`;
+      console.log('🔌 Attempting to connect to SSE:', url.replace(/token=[^&]+/, 'token=***'));
       this.eventSource = new EventSource(url);
 
       this.eventSource.onopen = () => {
@@ -141,18 +174,24 @@ class NotificationService {
 
       this.eventSource.onerror = (error) => {
         console.error('❌ SSE Connection error:', error);
+        const wasConnected = this.isConnected;
         this.isConnected = false;
         this.notifyListeners('error', { error: 'Connection error' });
         
-        // Attempt to reconnect
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        // Only attempt reconnect if we were previously connected (not on initial connection failure)
+        // This prevents reconnection loops on auth failures or CORS issues
+        if (wasConnected && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
           console.log(`🔄 Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
           
           setTimeout(() => {
             this.connect(vendorId);
           }, this.reconnectDelay * this.reconnectAttempts);
-        } else {
+        } else if (!wasConnected && this.eventSource.readyState === EventSource.CLOSED) {
+          // Connection failed on first attempt - likely auth or CORS issue
+          console.error('❌ Initial SSE connection failed. Check authentication and CORS settings.');
+          this.disconnect();
+        } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
           console.error('Max reconnection attempts reached');
           this.disconnect();
         }
@@ -164,12 +203,24 @@ class NotificationService {
 
   // Disconnect from SSE
   disconnect() {
+    // Clear any pending connection timeouts
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
     if (this.eventSource) {
+      this.isDisconnecting = true;
       this.eventSource.close();
       this.eventSource = null;
       this.isConnected = false;
       console.log('SSE Connection closed');
       this.notifyListeners('disconnected', { status: 'disconnected' });
+      
+      // Reset flag after a short delay
+      setTimeout(() => {
+        this.isDisconnecting = false;
+      }, 100);
     }
   }
 
