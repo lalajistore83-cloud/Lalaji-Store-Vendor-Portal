@@ -53,13 +53,22 @@ const OrderManagement = () => {
   const dateDropdownRef = useRef(null);
 
   useEffect(() => {
+    console.log('🎬 OrderManagement component mounted');
     fetchOrders();
     fetchVendorProfile();
-    setupSSEConnection();
+    
+    // Setup SSE with a slight delay to ensure component is fully mounted
+    const sseTimeout = setTimeout(() => {
+      console.log('⏰ Setting up SSE connection after mount delay');
+      setupSSEConnection();
+    }, 1000); // 1 second delay
+    
     requestNotificationPermission();
 
     // Cleanup on unmount
     return () => {
+      console.log('🛑 OrderManagement component unmounting');
+      clearTimeout(sseTimeout);
       notificationService.disconnect();
     };
   }, []);
