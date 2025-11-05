@@ -75,6 +75,17 @@ const DeliveryTeamManagement = () => {
       name: '',
       phone: '',
       relation: ''
+    },
+
+    // Documents
+    documents: {
+      aadhar: null,
+      pan: null,
+      driving_license: null,
+      vehicle_rc: null,
+      bank_passbook: null,
+      vehicle_photo: null,
+      profile_photo: null
     }
   });
 
@@ -105,39 +116,53 @@ const DeliveryTeamManagement = () => {
     try {
       setError(null);
       
-      // Format the data according to backend expectations and User schema
-      const deliveryBoyPayload = {
-        name: formData.name,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
-        password: formData.password,
-        mobileNumber: formData.mobileNumber || formData.phoneNumber,
-        alternateNumber: formData.alternateNumber,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.pincode,
-        panNumber: formData.panNumber,
-        aadharNumber: formData.aadharNumber,
-        experienceYears: formData.experienceYears ? parseInt(formData.experienceYears) : 0,
-        vehicleType: formData.vehicleType,
-        vehicleNumber: formData.vehicleNumber,
-        licenseNumber: formData.licenseNumber,
-        accountHolderName: formData.accountHolderName,
-        accountNumber: formData.accountNumber,
-        ifsc: formData.ifsc,
-        upiId: formData.upiId,
-        emergencyContact: {
-          name: formData.emergencyContact.name,
-          phone: formData.emergencyContact.phone,
-          relation: formData.emergencyContact.relation
-        }
-      };
+      // Create FormData for multipart/form-data upload
+      const formDataToSend = new FormData();
       
-      const response = await addDeliveryBoy(deliveryBoyPayload);
+      // Add all text fields
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('phoneNumber', formData.phoneNumber);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('mobileNumber', formData.mobileNumber || formData.phoneNumber);
+      
+      if (formData.alternateNumber) formDataToSend.append('alternateNumber', formData.alternateNumber);
+      if (formData.address) formDataToSend.append('address', formData.address);
+      if (formData.city) formDataToSend.append('city', formData.city);
+      if (formData.state) formDataToSend.append('state', formData.state);
+      if (formData.pincode) formDataToSend.append('pincode', formData.pincode);
+      if (formData.panNumber) formDataToSend.append('panNumber', formData.panNumber);
+      if (formData.aadharNumber) formDataToSend.append('aadharNumber', formData.aadharNumber);
+      if (formData.experienceYears) formDataToSend.append('experienceYears', formData.experienceYears);
+      
+      formDataToSend.append('vehicleType', formData.vehicleType);
+      formDataToSend.append('vehicleNumber', formData.vehicleNumber);
+      
+      if (formData.licenseNumber) formDataToSend.append('licenseNumber', formData.licenseNumber);
+      if (formData.accountHolderName) formDataToSend.append('accountHolderName', formData.accountHolderName);
+      if (formData.accountNumber) formDataToSend.append('accountNumber', formData.accountNumber);
+      if (formData.ifsc) formDataToSend.append('ifsc', formData.ifsc);
+      if (formData.upiId) formDataToSend.append('upiId', formData.upiId);
+      
+      // Add emergency contact
+      if (formData.emergencyContact.name) {
+        formDataToSend.append('emergencyContact[name]', formData.emergencyContact.name);
+        formDataToSend.append('emergencyContact[phone]', formData.emergencyContact.phone);
+        formDataToSend.append('emergencyContact[relation]', formData.emergencyContact.relation);
+      }
+      
+      // Add document files
+      const documentTypes = ['aadhar', 'pan', 'driving_license', 'vehicle_rc', 'bank_passbook', 'vehicle_photo', 'profile_photo'];
+      documentTypes.forEach(docType => {
+        if (formData.documents[docType]) {
+          formDataToSend.append(docType, formData.documents[docType]);
+        }
+      });
+      
+      const response = await addDeliveryBoy(formDataToSend);
       
       if (response && response.success) {
-        setSuccessMessage('Delivery person added successfully!');
+        setSuccessMessage(response.message || 'Delivery person added successfully!');
         setTimeout(() => setSuccessMessage(null), 5000);
         setShowAddModal(false);
         resetForm();
@@ -232,12 +257,39 @@ const DeliveryTeamManagement = () => {
         name: '',
         phone: '',
         relation: ''
+      },
+
+      // Documents
+      documents: {
+        aadhar: null,
+        pan: null,
+        driving_license: null,
+        vehicle_rc: null,
+        bank_passbook: null,
+        vehicle_photo: null,
+        profile_photo: null
       }
     });
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, files } = e.target;
+    
+    // Handle file uploads
+    if (type === 'file') {
+      if (files && files[0]) {
+        setFormData(prev => ({
+          ...prev,
+          documents: {
+            ...prev.documents,
+            [name]: files[0]
+          }
+        }));
+      }
+      return;
+    }
+    
+    // Handle emergency contact nested fields
     if (name.startsWith('emergencyContact.')) {
       const field = name.split('.')[1];
       setFormData(prev => ({
@@ -1002,29 +1054,128 @@ const DeliveryTeamManagement = () => {
                       </div>
                     </div>
 
-                    {/* Document Verification Notice */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <DocumentTextIcon className="h-5 w-5 text-blue-600 mt-0.5 mr-3 shrink-0" />
+                    {/* Document Upload Section */}
+                    <div className="border-t border-gray-200 pt-6">
+                      <h4 className="text-base font-semibold text-gray-900 mb-4">Documents Upload (Required)</h4>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-start">
+                          <DocumentTextIcon className="h-5 w-5 text-red-600 mt-0.5 mr-3 shrink-0" />
+                          <div>
+                            <h5 className="text-sm font-semibold text-red-900 mb-1">
+                              Document Verification Required
+                            </h5>
+                            <p className="text-xs text-red-700">
+                              All documents marked with <span className="text-red-600 font-semibold">*</span> are mandatory for registration. 
+                              The delivery person will be verified only after uploading Aadhar Card, PAN Card, and Driving License.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <h5 className="text-sm font-semibold text-blue-900 mb-1">
-                            Document Verification Required
-                          </h5>
-                          <p className="text-xs text-blue-700">
-                            After registration, the delivery person will need to upload the following documents for verification:
-                          </p>
-                          <ul className="mt-2 text-xs text-blue-700 space-y-1 ml-4 list-disc">
-                            <li>Aadhar Card</li>
-                            <li>PAN Card</li>
-                            <li>Driving License</li>
-                            <li>Vehicle RC (Registration Certificate)</li>
-                            <li>Bank Passbook</li>
-                            <li>Vehicle Photo</li>
-                            <li>Profile Photo</li>
-                          </ul>
-                          <p className="text-xs text-blue-700 mt-2">
-                            The delivery person can upload these documents through their mobile app after logging in.
-                          </p>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Aadhar Card <span className="text-red-600 font-semibold">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="aadhar"
+                            accept="image/*,application/pdf"
+                            onChange={handleInputChange}
+                            required
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            PAN Card <span className="text-red-600 font-semibold">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="pan"
+                            accept="image/*,application/pdf"
+                            onChange={handleInputChange}
+                            required
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Driving License <span className="text-red-600 font-semibold">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="driving_license"
+                            accept="image/*,application/pdf"
+                            onChange={handleInputChange}
+                            required
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Vehicle RC <span className="text-red-600 font-semibold">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="vehicle_rc"
+                            accept="image/*,application/pdf"
+                            onChange={handleInputChange}
+                            required
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Bank Passbook <span className="text-red-600 font-semibold">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="bank_passbook"
+                            accept="image/*,application/pdf"
+                            onChange={handleInputChange}
+                            required
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Vehicle Photo <span className="text-red-600 font-semibold">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="vehicle_photo"
+                            accept="image/*"
+                            onChange={handleInputChange}
+                            required
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Profile Photo <span className="text-red-600 font-semibold">*</span>
+                          </label>
+                          <input
+                            type="file"
+                            name="profile_photo"
+                            accept="image/*"
+                            onChange={handleInputChange}
+                            required
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
                         </div>
                       </div>
                     </div>

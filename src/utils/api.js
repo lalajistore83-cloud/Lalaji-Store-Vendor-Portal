@@ -8,9 +8,13 @@ const apiRequest = async (endpoint, options = {}) => {
   // Get token from localStorage directly to avoid circular dependency
   const token = localStorage.getItem('vendor_token');
   
+  // Check if body is FormData
+  const isFormData = options.body instanceof FormData;
+  
   const defaultOptions = {
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type for non-FormData requests
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
   };
@@ -125,10 +129,26 @@ export const getAllDeliveryTeam = async () => {
 };
 
 export const addDeliveryBoy = async (deliveryBoyData) => {
-  return apiRequest('/vendor/delivery-team', {
+  // Check if deliveryBoyData is FormData (for file uploads)
+  const isFormData = deliveryBoyData instanceof FormData;
+  
+  const options = {
     method: 'POST',
-    body: JSON.stringify(deliveryBoyData),
-  });
+  };
+  
+  if (isFormData) {
+    // For FormData, don't set Content-Type header (browser will set it with boundary)
+    options.body = deliveryBoyData;
+    // Remove Content-Type from headers for FormData
+    return apiRequest('/vendor/delivery-team', {
+      ...options,
+      headers: {} // Let browser set multipart/form-data with boundary
+    });
+  } else {
+    // For JSON data
+    options.body = JSON.stringify(deliveryBoyData);
+    return apiRequest('/vendor/delivery-team', options);
+  }
 };
 
 export const updateDeliveryBoyStatus = async (deliveryBoyId, statusData) => {
