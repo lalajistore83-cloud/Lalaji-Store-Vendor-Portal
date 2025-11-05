@@ -1,17 +1,9 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// Only use StrictMode in development
-const isDevelopment = import.meta.env.MODE === 'development';
-
+// StrictMode disabled to fix SSE connection issues
+// StrictMode causes double-mounting which aborts SSE connections
 createRoot(document.getElementById('root')).render(
-  isDevelopment ? (
-    <StrictMode>
-      <App />
-    </StrictMode>
-  ) : (
-    <App />
-  )
+  <App />
 )
