@@ -547,7 +547,7 @@ const OrderManagement = () => {
       {/* Success/Error Messages - Fixed at top */}
       {successMessage && (
         <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
-          <div className="rounded-lg bg-green-50 p-4 border border-green-200 shadow-lg">
+          <div className="rounded-lg bg-green-50 p-4 border border-green-200 ">
             <div className="flex items-center">
               <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
               <div className="text-sm text-green-700">{successMessage}</div>
@@ -566,7 +566,7 @@ const OrderManagement = () => {
 
       {error && (
         <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
-          <div className="rounded-lg bg-red-50 p-4 border border-red-200 shadow-lg">
+          <div className="rounded-lg bg-red-50 p-4 border border-red-200 ">
             <div className="flex items-center">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-600 mr-3" />
               <div className="text-sm text-red-700">{error}</div>
@@ -626,8 +626,8 @@ const OrderManagement = () => {
           onClick={() => setFilterStatus(filterStatus === 'pending' ? 'all' : 'pending')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
             filterStatus === 'pending' 
-              ? 'border-yellow-500 shadow-md' 
-              : 'border-gray-200 hover:border-yellow-300 hover:shadow-sm'
+              ? 'border-yellow-500 ' 
+              : 'border-gray-200 hover:border-yellow-300 hover:'
           }`}
         >
           <div className="p-3">
@@ -648,8 +648,8 @@ const OrderManagement = () => {
           onClick={() => setFilterStatus(filterStatus === 'confirmed' ? 'all' : 'confirmed')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
             filterStatus === 'confirmed' 
-              ? 'border-teal-500 shadow-md' 
-              : 'border-gray-200 hover:border-teal-300 hover:shadow-sm'
+              ? 'border-teal-500 ' 
+              : 'border-gray-200 hover:border-teal-300 hover:'
           }`}
         >
           <div className="p-3">
@@ -670,8 +670,8 @@ const OrderManagement = () => {
           onClick={() => setFilterStatus(filterStatus === 'processing' ? 'all' : 'processing')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
             filterStatus === 'processing' 
-              ? 'border-blue-500 shadow-md' 
-              : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+              ? 'border-blue-500 ' 
+              : 'border-gray-200 hover:border-blue-300 hover:'
           }`}
         >
           <div className="p-3">
@@ -785,7 +785,7 @@ const OrderManagement = () => {
 
             {/* Dropdown Menu */}
             {statusDropdownOpen && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg  max-h-60 overflow-auto">
                 <div
                   onClick={() => {
                     setFilterStatus('all');
@@ -943,7 +943,7 @@ const OrderManagement = () => {
 
             {/* Dropdown Menu */}
             {dateDropdownOpen && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-auto">
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg  max-h-96 overflow-auto">
                 <div
                   onClick={() => {
                     setFilterDate('all');
@@ -1304,7 +1304,7 @@ const OrderManagement = () => {
             onClick={() => setShowOrderDetails(false)}
           ></div>
             
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col z-10">
+          <div className="relative bg-white rounded-lg  w-full max-w-4xl max-h-[90vh] flex flex-col z-10">
               {/* Modal Header */}
               <div className="bg-white px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1747,7 +1747,7 @@ const OrderManagement = () => {
             ></div>
             
             {/* Modal Content */}
-            <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:max-w-lg sm:w-full z-10">
+            <div className="relative bg-white rounded-lg text-left overflow-hidden  transform transition-all sm:my-8 sm:max-w-lg sm:w-full z-10">
               {/* Modal Header */}
               <div className="bg-white px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">

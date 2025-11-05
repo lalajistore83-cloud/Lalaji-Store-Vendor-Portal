@@ -264,7 +264,7 @@ const InventoryManagement = () => {
       {/* Success/Error Messages - Fixed at top */}
       {successMessage && (
         <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
-          <div className="rounded-lg bg-green-50 p-4 border border-green-200 shadow-lg">
+          <div className="rounded-lg bg-green-50 p-4 border border-green-200 ">
             <div className="flex items-center">
               <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
               <div className="text-sm text-green-700">{successMessage}</div>
@@ -283,7 +283,7 @@ const InventoryManagement = () => {
 
       {error && (
         <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
-          <div className="rounded-lg bg-red-50 p-4 border border-red-200 shadow-lg">
+          <div className="rounded-lg bg-red-50 p-4 border border-red-200 ">
             <div className="flex items-center">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-600 mr-3" />
               <div className="text-sm text-red-700">{error}</div>
@@ -339,8 +339,8 @@ const InventoryManagement = () => {
           onClick={() => setFilterStock('all')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
             filterStock === 'all' 
-              ? 'border-blue-500 shadow-md' 
-              : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+              ? 'border-blue-500 ' 
+              : 'border-gray-200 hover:border-blue-300 hover:'
           }`}
         >
           <div className="p-3">
@@ -361,8 +361,8 @@ const InventoryManagement = () => {
           onClick={() => setFilterStock(filterStock === 'in_stock' ? 'all' : 'in_stock')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
             filterStock === 'in_stock' 
-              ? 'border-green-500 shadow-md' 
-              : 'border-gray-200 hover:border-green-300 hover:shadow-sm'
+              ? 'border-green-500 ' 
+              : 'border-gray-200 hover:border-green-300 hover:'
           }`}
         >
           <div className="p-3">
@@ -383,8 +383,8 @@ const InventoryManagement = () => {
           onClick={() => setFilterStock(filterStock === 'low_stock' ? 'all' : 'low_stock')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
             filterStock === 'low_stock' 
-              ? 'border-yellow-500 shadow-md' 
-              : 'border-gray-200 hover:border-yellow-300 hover:shadow-sm'
+              ? 'border-yellow-500 ' 
+              : 'border-gray-200 hover:border-yellow-300 hover:'
           }`}
         >
           <div className="p-3">
@@ -405,8 +405,8 @@ const InventoryManagement = () => {
           onClick={() => setFilterStock(filterStock === 'out_of_stock' ? 'all' : 'out_of_stock')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
             filterStock === 'out_of_stock' 
-              ? 'border-red-500 shadow-md' 
-              : 'border-gray-200 hover:border-red-300 hover:shadow-sm'
+              ? 'border-red-500 ' 
+              : 'border-gray-200 hover:border-red-300 hover:'
           }`}
         >
           <div className="p-3">
@@ -489,7 +489,7 @@ const InventoryManagement = () => {
 
             {/* Dropdown Menu */}
             {categoryDropdownOpen && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg  max-h-60 overflow-auto">
                 <div
                   onClick={() => {
                     setFilterCategory('all');

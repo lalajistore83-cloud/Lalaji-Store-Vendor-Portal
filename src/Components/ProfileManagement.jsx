@@ -630,7 +630,7 @@ const ProfileManagement = () => {
       {/* Success/Error Messages */}
       {successMessage && (
         <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
-          <div className="rounded-lg bg-green-50 p-4 border border-green-200 shadow-lg">
+          <div className="rounded-lg bg-green-50 p-4 border border-green-200 ">
             <div className="flex items-center">
               <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
               <div className="text-sm text-green-700">{successMessage}</div>
@@ -647,7 +647,7 @@ const ProfileManagement = () => {
 
       {error && (
         <div className="fixed top-4 right-4 z-50 max-w-md animate-fade-in">
-          <div className="rounded-lg bg-red-50 p-4 border border-red-200 shadow-lg">
+          <div className="rounded-lg bg-red-50 p-4 border border-red-200 ">
             <div className="flex items-center">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-600 mr-3" />
               <div className="text-sm text-red-700">{error}</div>
@@ -716,7 +716,7 @@ const ProfileManagement = () => {
                   <UserIcon className="h-8 w-8 text-white" />
                 )}
               </div>
-              <button className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center text-white hover:bg-blue-700 shadow-lg border-2 border-white">
+              <button className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center text-white hover:bg-blue-700  border-2 border-white">
                 <CameraIcon className="h-3 w-3" />
               </button>
             </div>
@@ -1072,7 +1072,7 @@ const ProfileManagement = () => {
                       >
                         <span
                           aria-hidden="true"
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white  ring-0 transition duration-200 ease-in-out ${
                             formData.deliveryModel === 'self_delivery' ? 'translate-x-5' : 'translate-x-0'
                           }`}
                         />

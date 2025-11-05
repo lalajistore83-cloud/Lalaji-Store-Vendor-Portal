@@ -8,9 +8,13 @@ const apiRequest = async (endpoint, options = {}) => {
   // Get token from localStorage directly to avoid circular dependency
   const token = localStorage.getItem('vendor_token');
   
+  // Check if body is FormData
+  const isFormData = options.body instanceof FormData;
+  
   const defaultOptions = {
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type for non-FormData requests
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
   };
@@ -125,10 +129,26 @@ export const getAllDeliveryTeam = async () => {
 };
 
 export const addDeliveryBoy = async (deliveryBoyData) => {
-  return apiRequest('/vendor/delivery-team', {
+  // Check if deliveryBoyData is FormData (for file uploads)
+  const isFormData = deliveryBoyData instanceof FormData;
+  
+  const options = {
     method: 'POST',
-    body: JSON.stringify(deliveryBoyData),
-  });
+  };
+  
+  if (isFormData) {
+    // For FormData, don't set Content-Type header (browser will set it with boundary)
+    options.body = deliveryBoyData;
+    // Remove Content-Type from headers for FormData
+    return apiRequest('/vendor/delivery-team', {
+      ...options,
+      headers: {} // Let browser set multipart/form-data with boundary
+    });
+  } else {
+    // For JSON data
+    options.body = JSON.stringify(deliveryBoyData);
+    return apiRequest('/vendor/delivery-team', options);
+  }
 };
 
 export const updateDeliveryBoyStatus = async (deliveryBoyId, statusData) => {
@@ -237,7 +257,19 @@ export const requestPayout = async (amount) => {
 
 export const getPayouts = async (params = {}) => {
   const queryString = new URLSearchParams(params).toString();
-  return apiRequest(`/vendor/wallet/payouts${queryString ? `?${queryString}` : ''}`);
+  return apiRequest(`/vendor/payouts${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getPayoutAnalytics = async () => {
+  return apiRequest('/vendor/payouts/analytics');
+};
+
+export const getPayoutDetails = async (payoutId) => {
+  return apiRequest(`/vendor/payouts/${payoutId}`);
+};
+
+export const getEarnings = async () => {
+  return apiRequest('/vendor/earnings');
 };
 
 // Analytics APIs
@@ -399,6 +431,27 @@ export const handleApiError = (error) => {
 };
 
 export default {
+  get: (endpoint, options = {}) => {
+    const params = options.params || {};
+    const queryString = new URLSearchParams(params).toString();
+    const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+    return apiRequest(url, { method: 'GET' });
+  },
+  post: (endpoint, data) => {
+    return apiRequest(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  put: (endpoint, data) => {
+    return apiRequest(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: (endpoint) => {
+    return apiRequest(endpoint, { method: 'DELETE' });
+  },
   getDashboardData,
   getVendorStats,
   getProducts,
@@ -425,6 +478,9 @@ export default {
   getTransactions,
   requestPayout,
   getPayouts,
+  getPayoutAnalytics,
+  getPayoutDetails,
+  getEarnings,
   getAnalytics,
   getSalesReport,
   getProductAnalytics,

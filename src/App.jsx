@@ -13,7 +13,7 @@ import {
   XMarkIcon,
   BuildingStorefrontIcon,
   ShoppingBagIcon,
-  WalletIcon,
+  BanknotesIcon,
   ArchiveBoxIcon,
   UserIcon,
   TruckIcon,
@@ -152,7 +152,7 @@ const VendorLayout = ({ children }) => {
         { name: "Inventory", href: "/inventory", icon: ArchiveBoxIcon },
         { name: "Orders", href: "/orders", icon: ShoppingBagIcon },
         { name: "Delivery Team", href: "/delivery-team", icon: TruckIcon },
-        { name: "Wallet", href: "/wallet", icon: WalletIcon },
+        { name: "Payouts", href: "/wallet", icon: BanknotesIcon },
         { name: "Analytics", href: "/analytics", icon: ChartBarIcon },
         { name: "Profile", href: "/profile", icon: UserIcon },
       ]
@@ -189,7 +189,7 @@ const VendorLayout = ({ children }) => {
       {/* Desktop sidebar */}
       <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 transition-all duration-300 ${
         sidebarCollapsed ? 'lg:w-14' : 'lg:w-56'
-      }`}>
+      } border-r border-gray-200 bg-white`}>
         <SidebarContent
           navigation={navigation}
           isActive={isActive}
@@ -209,23 +209,30 @@ const VendorLayout = ({ children }) => {
       }`}>
         {/* Top header */}
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
-          <div className="flex h-12 items-center justify-between px-6">
+          <div className="flex h-13.75 items-center justify-between px-6">
             <div className="flex items-center gap-x-4">
               <button
                 type="button"
-                className="-m-2 p-2 text-gray-700 lg:hidden"
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all lg:hidden"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Bars3Icon className="h-6 w-6" />
               </button>
+              
             </div>
 
-            <div className="flex items-center gap-x-4">
+            <div className="flex items-center gap-x-2">
+              {/* Notification Bell */}
+              <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all">
+                <BellIcon className="h-5 w-5" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full"></span>
+              </button>
+
               {/* Profile dropdown */}
               <div className="relative">
-                <div className="flex items-center gap-x-3">
+                <div className="flex items-center gap-x-2 px-2 py-1 rounded-lg hover:bg-gray-50 transition-all cursor-pointer">
                   <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-white text-sm font-['Gilroy']">
                       {user?.name ? user.name.charAt(0).toUpperCase() : 'V'}
                     </span>
                   </div>
@@ -257,25 +264,29 @@ const VendorLayout = ({ children }) => {
 // Sidebar component
 const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed, onToggleCollapse, isMobile, deliveryModel, onToggleDelivery, isTogglingDelivery }) => {
   return (
-    <div className="flex h-full flex-col gap-y-5 overflow-y-auto bg-white ">
-      <div className="flex h-12 shrink-0 items-center justify-between px-4">
+    <div className="flex h-full flex-col bg-white overflow-hidden">
+      {/* Sidebar Header */}
+      <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-gray-200">
         {!collapsed && (
           <div className="flex items-center gap-x-2">
-            <div className="h-6 w-6 rounded-lg bg-blue-600 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
               <BuildingStorefrontIcon className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-semibold text-gray-900 font-['Gilroy']">Vendor Portal</span>
+            <div>
+              <span className="text-base font-medium text-gray-900 font-['Gilroy']">Lalaji</span>
+              <p className="text-xs text-gray-500 font-['Gilroy'] -mt-0.5">Vendor Portal</p>
+            </div>
           </div>
         )}
         {collapsed && !isMobile && (
-          <div className="h-6 w-6 rounded-lg bg-blue-600 flex items-center justify-center">
+          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
             <BuildingStorefrontIcon className="h-4 w-4 text-white" />
           </div>
         )}
         {isMobile && (
           <button
             type="button"
-            className="-m-2 p-2 text-gray-700 hover:text-gray-900"
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
             onClick={onClose}
           >
             <XMarkIcon className="h-5 w-5" />
@@ -284,7 +295,7 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
         {!isMobile && (
           <button
             type="button"
-            className="-m-2 p-2 text-gray-700 hover:text-gray-900"
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
             onClick={onToggleCollapse}
           >
             <Bars3Icon className="h-5 w-5" />
@@ -292,31 +303,31 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
         )}
       </div>
 
-      <nav className="flex flex-1 flex-col px-4 pb-3">
-        <ul role="list" className="flex flex-1 flex-col gap-y-4">
+      <nav className="flex flex-1 flex-col px-2 py-3 overflow-y-auto">
+        <ul role="list" className="flex flex-1 flex-col gap-y-1">
           {navigation.map((section, sectionIdx) => (
             <li key={sectionIdx}>
               {!collapsed && (
-                <div className="text-xs font-semibold leading-6 text-gray-400 mb-2 font-['Gilroy'] tracking-wide">
+                <div className="text-xs font-medium text-gray-400 mb-2 px-2 font-['Gilroy'] tracking-wide uppercase">
                   {section.section}
                 </div>
               )}
-              <ul role="list" className="space-y-1">
+              <ul role="list" className="space-y-0.5">
                 {section.items.map((item) => (
                   <li key={item.name}>
                     <Link
                       to={item.href}
                       onClick={isMobile ? onClose : undefined}
-                      className={`group flex gap-x-2 rounded-md p-2 text-sm leading-6 font-medium transition-all duration-200 font-['Gilroy'] ${
+                      className={`group flex items-center gap-x-2 rounded-lg p-2 text-sm font-medium transition-all duration-200 font-['Gilroy'] relative ${
                         isActive(item.href)
-                          ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                          : 'text-gray-700 hover:text-blue-700 hover:bg-gray-50'
-                      }`}
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                      } ${collapsed ? 'justify-center' : ''}`}
                       title={collapsed ? item.name : undefined}
                     >
                       <item.icon
                         className={`h-5 w-5 shrink-0 transition-colors duration-200 ${
-                          isActive(item.href) ? 'text-blue-700' : 'text-gray-400 group-hover:text-blue-700'
+                          isActive(item.href) ? 'text-white' : 'text-gray-500 group-hover:text-blue-600'
                         }`}
                       />
                       {!collapsed && (
@@ -332,24 +343,21 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
           {/* Delivery Model Toggle */}
           <li className="mt-auto mb-2">
             {!collapsed ? (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-100">
+              <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-100">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-x-2">
-                    <TruckIcon className="h-4 w-4 text-blue-600" />
-                    <span className="text-xs font-semibold text-gray-700 font-['Gilroy']">Delivery Model</span>
-                  </div>
-                  <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    deliveryModel === 'lalaji_network' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'bg-green-100 text-green-700'
-                  }`}>
-                    {deliveryModel === 'lalaji_network' ? 'Network' : 'Self'}
+                  <div className="flex items-center gap-x-1.5">
+                    <TruckIcon className={`h-4 w-4 ${
+                      deliveryModel === 'lalaji_network' ? 'text-blue-600' : 'text-green-600'
+                    }`} />
+                    <span className="text-xs font-medium text-gray-700 font-['Gilroy']">Delivery Mode</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600 font-['Gilroy']">
-                    {deliveryModel === 'lalaji_network' ? 'Lalaji Network' : 'Self Delivery'}
-                  </span>
+                  <div>
+                    <p className="text-xs font-medium text-gray-900 font-['Gilroy']">
+                      {deliveryModel === 'lalaji_network' ? 'Lalaji Network' : 'Self Delivery'}
+                    </p>
+                  </div>
                   <button
                     onClick={onToggleDelivery}
                     disabled={isTogglingDelivery}
@@ -371,7 +379,7 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
                 <button
                   onClick={onToggleDelivery}
                   disabled={isTogglingDelivery}
-                  className={`w-full flex justify-center p-2 rounded-md transition-colors ${
+                  className={`w-full flex justify-center p-2 rounded-lg transition-all ${
                     deliveryModel === 'lalaji_network' 
                       ? 'bg-blue-50 hover:bg-blue-100' 
                       : 'bg-green-50 hover:bg-green-100'
@@ -390,10 +398,14 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
           <li>
             <button
               onClick={handleLogout}
-              className={`group flex w-full gap-x-2 rounded-md p-2 text-sm leading-6 font-medium text-gray-700 hover:text-red-700 hover:bg-red-50 transition-all duration-200 font-['Gilroy']`}
+              className={`group flex w-full gap-x-2 rounded-lg p-2 text-sm font-medium transition-all duration-200 font-['Gilroy'] ${
+                collapsed 
+                  ? 'justify-center hover:bg-red-50' 
+                  : 'text-gray-700 hover:text-red-600 hover:bg-red-50'
+              }`}
               title={collapsed ? 'Sign out' : undefined}
             >
-              <ArrowRightOnRectangleIcon className="h-5 w-5 shrink-0 text-gray-400 group-hover:text-red-700 transition-colors duration-200" />
+              <ArrowRightOnRectangleIcon className="h-5 w-5 shrink-0 text-gray-500 group-hover:text-red-600 transition-colors duration-200" />
               {!collapsed && (
                 <span className="truncate">Sign out</span>
               )}
