@@ -10,11 +10,14 @@ import {
   TagIcon,
   AdjustmentsHorizontalIcon,
   ArchiveBoxIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  XMarkIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
-import { getVendorProducts, updateVendorProductStock } from '../utils/api';
+import { getVendorProducts, updateVendorProductStock, createVendorProduct, getCategories } from '../utils/api';
 
 const InventoryManagement = () => {
+  const [activeTab, setActiveTab] = useState('lalaji'); // 'lalaji' or 'own'
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,14 +32,35 @@ const InventoryManagement = () => {
     operation: 'add'
   });
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [addingProduct, setAddingProduct] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    description: '',
+    shortDescription: '',
+    category: '',
+    subcategory: '',
+    brand: '',
+    basePrice: '',
+    weight: '',
+    unit: 'kg',
+    initialStock: 0,
+    lowStockThreshold: 10,
+    images: []
+  });
+  
   const categoryDropdownRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Get unique categories from inventory
-  const categories = [...new Set(inventory.map(item => item.category).filter(Boolean))];
+  const inventoryCategories = [...new Set(inventory.map(item => item.category).filter(Boolean))];
 
   useEffect(() => {
     fetchInventory();
-  }, []);
+    fetchCategories();
+  }, [activeTab]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -52,6 +76,103 @@ const InventoryManagement = () => {
     };
   }, []);
 
+  const fetchCategories = async () => {
+    try {
+      const response = await getCategories();
+      if (response.success) {
+        setCategories(response.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  };
+
+  const handleCategoryChange = (categoryId) => {
+    setNewProduct({ ...newProduct, category: categoryId, subcategory: '' });
+    const selectedCategory = categories.find(cat => cat._id === categoryId);
+    setSubcategories(selectedCategory?.subcategories || []);
+  };
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length + newProduct.images.length > 4) {
+      setError('Maximum 4 images allowed');
+      return;
+    }
+    setNewProduct({ ...newProduct, images: [...newProduct.images, ...files] });
+  };
+
+  const removeImage = (index) => {
+    const updatedImages = newProduct.images.filter((_, i) => i !== index);
+    setNewProduct({ ...newProduct, images: updatedImages });
+  };
+
+  const handleAddProduct = async () => {
+    try {
+      setAddingProduct(true);
+      setError(null);
+
+      // Validation
+      if (!newProduct.name || !newProduct.description || !newProduct.category || 
+          !newProduct.subcategory || !newProduct.brand || !newProduct.basePrice || 
+          !newProduct.weight || !newProduct.unit) {
+        setError('Please fill all required fields');
+        return;
+      }
+
+      if (newProduct.images.length === 0) {
+        setError('Please add at least one product image');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('name', newProduct.name);
+      formData.append('description', newProduct.description);
+      formData.append('shortDescription', newProduct.shortDescription);
+      formData.append('category', newProduct.category);
+      formData.append('subcategory', newProduct.subcategory);
+      formData.append('brand', newProduct.brand);
+      formData.append('basePrice', newProduct.basePrice);
+      formData.append('weight', newProduct.weight);
+      formData.append('unit', newProduct.unit);
+      formData.append('initialStock', newProduct.initialStock);
+      formData.append('lowStockThreshold', newProduct.lowStockThreshold);
+      
+      // Add images
+      newProduct.images.forEach((image, index) => {
+        formData.append('images', image);
+        if (index === 0) formData.append('primaryImageIndex', '0');
+      });
+
+      const response = await createVendorProduct(formData);
+      
+      if (response.success) {
+        setSuccessMessage('Product added successfully! It will be available after admin approval.');
+        setShowAddProductModal(false);
+        setNewProduct({
+          name: '',
+          description: '',
+          shortDescription: '',
+          category: '',
+          subcategory: '',
+          brand: '',
+          basePrice: '',
+          weight: '',
+          unit: 'kg',
+          initialStock: 0,
+          lowStockThreshold: 10,
+          images: []
+        });
+        fetchInventory();
+      }
+    } catch (err) {
+      console.error('Error adding product:', err);
+      setError(err.message || 'Failed to add product');
+    } finally {
+      setAddingProduct(false);
+    }
+  };
+
   const fetchInventory = async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -60,7 +181,13 @@ const InventoryManagement = () => {
         setLoading(true);
       }
       setError(null);
-      const response = await getVendorProducts();
+      
+      // For 'lalaji' tab, get only Lalaji Store products (where vendor selected them)
+      // For 'own' tab, get vendor's own created products
+      const response = await getVendorProducts({ 
+        sourceFilter: activeTab === 'lalaji' ? 'selected' : 'own' 
+      });
+      
       console.log('Vendor Products Response:', response);
       
       // Handle both response formats: direct array or response.data
@@ -113,7 +240,9 @@ const InventoryManagement = () => {
             unit: product.weight?.unit || product.unit || 'unit',
             weightDisplay: weightDisplay,
             totalSold: vp.analytics?.totalSold || 0,
-            totalRevenue: vp.analytics?.totalRevenue || 0
+            totalRevenue: vp.analytics?.totalRevenue || 0,
+            isOwnProduct: activeTab === 'own',
+            approvalStatus: product.approvalStatus?.status || 'pending'
           };
         });
         
@@ -324,6 +453,15 @@ const InventoryManagement = () => {
             </svg>
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
+          {activeTab === 'own' && (
+            <button 
+              onClick={() => setShowAddProductModal(true)}
+              className="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500"
+            >
+              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+              Add Product
+            </button>
+          )}
           <button className="inline-flex items-center rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
             Export Report
           </button>
@@ -332,6 +470,48 @@ const InventoryManagement = () => {
             Bulk Update
           </button>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('lalaji')}
+            className={`${
+              activeTab === 'lalaji'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            } whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium`}
+          >
+            <div className="flex items-center gap-2">
+              <CubeIcon className="h-4 w-4" />
+              Lalaji Store Products
+              {activeTab === 'lalaji' && inventory.length > 0 && (
+                <span className="bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs">
+                  {inventory.length}
+                </span>
+              )}
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('own')}
+            className={`${
+              activeTab === 'own'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            } whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium`}
+          >
+            <div className="flex items-center gap-2">
+              <TagIcon className="h-4 w-4" />
+              My Store Products
+              {activeTab === 'own' && inventory.length > 0 && (
+                <span className="bg-green-100 text-green-600 py-0.5 px-2 rounded-full text-xs">
+                  {inventory.length}
+                </span>
+              )}
+            </div>
+          </button>
+        </nav>
       </div>
 {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
@@ -504,7 +684,7 @@ const InventoryManagement = () => {
                     All Categories
                   </div>
                 </div>
-                {categories.map((category) => (
+                {inventoryCategories.map((category) => (
                   <div
                     key={category}
                     onClick={() => {
@@ -708,6 +888,277 @@ const InventoryManagement = () => {
           </table>
         </div>
       </div>
+
+      {/* Add Product Modal */}
+      {showAddProductModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+              {/* Modal Header */}
+              <div className="bg-white px-4 pt-4 pb-2 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold leading-6 text-gray-900">
+                    Add New Product
+                  </h3>
+                  <button
+                    type="button"
+                    className="rounded-md bg-white text-gray-400 hover:text-gray-500"
+                    onClick={() => setShowAddProductModal(false)}
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Add your own product to sell in your store. It will require admin approval.
+                </p>
+              </div>
+
+              {/* Modal Content */}
+              <div className="max-h-96 overflow-y-auto px-4 py-3">
+                <div className="space-y-3">
+                  {/* Product Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Product Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newProduct.name}
+                      onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                      placeholder="e.g., Fresh Organic Apples"
+                      className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Description *
+                    </label>
+                    <textarea
+                      value={newProduct.description}
+                      onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                      rows={3}
+                      placeholder="Detailed product description..."
+                      className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  {/* Category & Subcategory */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Category *
+                      </label>
+                      <select
+                        value={newProduct.category}
+                        onChange={(e) => handleCategoryChange(e.target.value)}
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select Category</option>
+                        {categories.map(cat => (
+                          <option key={cat._id} value={cat._id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Subcategory *
+                      </label>
+                      <select
+                        value={newProduct.subcategory}
+                        onChange={(e) => setNewProduct({...newProduct, subcategory: e.target.value})}
+                        disabled={!newProduct.category}
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Select Subcategory</option>
+                        {subcategories.map(sub => (
+                          <option key={sub._id} value={sub._id}>{sub.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Brand & Price */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Brand *
+                      </label>
+                      <input
+                        type="text"
+                        value={newProduct.brand}
+                        onChange={(e) => setNewProduct({...newProduct, brand: e.target.value})}
+                        placeholder="e.g., Organic Farms"
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Base Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        value={newProduct.basePrice}
+                        onChange={(e) => setNewProduct({...newProduct, basePrice: e.target.value})}
+                        placeholder="0"
+                        min="0"
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Weight & Unit */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Weight/Quantity *
+                      </label>
+                      <input
+                        type="number"
+                        value={newProduct.weight}
+                        onChange={(e) => setNewProduct({...newProduct, weight: e.target.value})}
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Unit *
+                      </label>
+                      <select
+                        value={newProduct.unit}
+                        onChange={(e) => setNewProduct({...newProduct, unit: e.target.value})}
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="kg">Kilogram (kg)</option>
+                        <option value="g">Gram (g)</option>
+                        <option value="l">Liter (l)</option>
+                        <option value="ml">Milliliter (ml)</option>
+                        <option value="piece">Piece</option>
+                        <option value="pack">Pack</option>
+                        <option value="dozen">Dozen</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Initial Stock & Low Stock Threshold */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Initial Stock
+                      </label>
+                      <input
+                        type="number"
+                        value={newProduct.initialStock}
+                        onChange={(e) => setNewProduct({...newProduct, initialStock: parseInt(e.target.value) || 0})}
+                        placeholder="0"
+                        min="0"
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Low Stock Alert
+                      </label>
+                      <input
+                        type="number"
+                        value={newProduct.lowStockThreshold}
+                        onChange={(e) => setNewProduct({...newProduct, lowStockThreshold: parseInt(e.target.value) || 10})}
+                        placeholder="10"
+                        min="0"
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Product Images */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Product Images * (Max 4)
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <div className="grid grid-cols-4 gap-2">
+                      {newProduct.images.map((img, index) => (
+                        <div key={index} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={URL.createObjectURL(img)}
+                            alt={`Product ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            onClick={() => removeImage(index)}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                          >
+                            <XMarkIcon className="h-3 w-3" />
+                          </button>
+                          {index === 0 && (
+                            <span className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 py-0.5 rounded">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                      {newProduct.images.length < 4 && (
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50"
+                        >
+                          <PhotoIcon className="h-6 w-6 text-gray-400" />
+                          <span className="text-xs text-gray-500 mt-1">Add Image</span>
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">First image will be the primary image</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-4 gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddProduct}
+                  disabled={addingProduct}
+                  className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {addingProduct ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <PlusIcon className="h-4 w-4 mr-1" />
+                      Add Product
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddProductModal(false)}
+                  disabled={addingProduct}
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

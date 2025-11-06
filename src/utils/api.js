@@ -130,6 +130,14 @@ export const addProduct = async (productData) => {
   });
 };
 
+// Create vendor's own product (directly added to inventory, no approval needed)
+export const createVendorProduct = async (formData) => {
+  return apiRequest('/vendor-products/create-own', {
+    method: 'POST',
+    body: formData,
+  });
+};
+
 export const updateProduct = async (id, productData) => {
   return apiRequest(`/vendor/products/${id}`, {
     method: 'PUT',
@@ -388,7 +396,7 @@ export const uploadDocument = async (type, file) => {
 
 // Category APIs
 export const getCategories = async () => {
-  return apiRequest('/vendor/categories');
+  return apiRequest('/categories');
 };
 
 // Notification APIs
@@ -550,6 +558,7 @@ export default {
   uploadProfilePhoto,
   uploadDocument,
   getCategories,
+  createVendorProduct,
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
