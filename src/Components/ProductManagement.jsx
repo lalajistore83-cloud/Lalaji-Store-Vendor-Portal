@@ -15,12 +15,13 @@ import {
   TableCellsIcon,
   Squares2X2Icon
 } from '@heroicons/react/24/outline';
-import { addProduct, updateProduct, deleteProduct, selectProduct, getAvailableProducts, getProductsByVendor } from '../utils/product';
+import { addProduct, updateProduct, deleteProduct, selectProduct, getAvailableProducts, getProductsByVendor, getVendorSubmittedProducts } from '../utils/product';
 import { getCategories, getSubcategories } from '../utils/category';
 import { auth } from '../utils/auth';
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
+  const [submittedProducts, setSubmittedProducts] = useState([]); // New state for vendor-submitted products
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -67,8 +68,10 @@ const ProductManagement = () => {
     subcategory: '',
     stock: '',
     images: [],
-    status: 'active',
+    status: 'pending_approval',
     sku: '',
+    brand: '',
+    unit: '',
     weight: '',
     weightUnit: 'kg',
     dimensions: '',
@@ -81,6 +84,7 @@ const ProductManagement = () => {
     manufacturingDate: '',
     expiryDate: '',
     perishable: false,
+    storageTemp: '',
     // Nutritional Info (per 100g)
     calories: '',
     protein: '',
@@ -93,8 +97,116 @@ const ProductManagement = () => {
     ingredients: [],
     // SEO
     seoTitle: '',
-    seoDescription: ''
+    seoDescription: '',
+    // Missing Product Schema Fields
+    barcode: '',
+    shelfLife: '',
+    shelfLifeUnit: 'days',
+    storageInstructions: '',
+    certifications: [],
+    allergens: [],
+    origin: {
+      country: '',
+      state: '',
+      city: ''
+    },
+    // Delivery settings
+    deliveryCategory: 'standard',
+    weightCategory: 'medium',
+    specialHandling: [],
+    // Dimensions breakdown
+    dimensionLength: '',
+    dimensionWidth: '',
+    dimensionHeight: '',
+    dimensionUnit: 'cm'
   });
+
+  // State for GST calculation
+  const [gstInfo, setGstInfo] = useState({
+    rate: 0,
+    amount: 0,
+    totalPrice: 0,
+    applicable: false,
+    hsnCode: ''
+  });
+
+  // Function to calculate GST based on subcategory
+  const calculateGST = async (basePrice, subcategoryId) => {
+    if (!basePrice || !subcategoryId) {
+      setGstInfo({
+        rate: 0,
+        amount: 0,
+        totalPrice: parseFloat(basePrice) || 0,
+        applicable: false,
+        hsnCode: ''
+      });
+      return;
+    }
+
+    try {
+      // Get GST rate from backend API
+      const response = await getGSTRate(formData.category, subcategoryId);
+      if (response?.success && response?.data) {
+        const gstConfig = response.data;
+        const price = parseFloat(basePrice);
+        const gstRate = gstConfig.gstRate || 18; // Default to 18% if not specified
+        const gstAmount = (price * gstRate) / 100;
+        const totalPrice = price + gstAmount;
+
+        setGstInfo({
+          rate: gstRate,
+          amount: Math.round(gstAmount * 100) / 100,
+          totalPrice: Math.round(totalPrice * 100) / 100,
+          applicable: gstConfig.gstApplicable !== false,
+          hsnCode: gstConfig.hsnCode || ''
+        });
+      } else {
+        // Fallback to default values
+        const price = parseFloat(basePrice);
+        const gstRate = 18; // Default GST rate
+        const gstAmount = (price * gstRate) / 100;
+        const totalPrice = price + gstAmount;
+
+        setGstInfo({
+          rate: gstRate,
+          amount: Math.round(gstAmount * 100) / 100,
+          totalPrice: Math.round(totalPrice * 100) / 100,
+          applicable: true,
+          hsnCode: ''
+        });
+      }
+    } catch (error) {
+      console.error('Error calculating GST:', error);
+      // Fallback calculation
+      const price = parseFloat(basePrice) || 0;
+      const gstRate = 18; // Default GST rate
+      const gstAmount = (price * gstRate) / 100;
+      const totalPrice = price + gstAmount;
+
+      setGstInfo({
+        rate: gstRate,
+        amount: Math.round(gstAmount * 100) / 100,
+        totalPrice: Math.round(totalPrice * 100) / 100,
+        applicable: true,
+        hsnCode: ''
+      });
+    }
+  };
+
+  // Effect to recalculate GST when price or subcategory changes
+  useEffect(() => {
+    if (formData.price && formData.subcategory) {
+      calculateGST(formData.price, formData.subcategory);
+    } else {
+      setGstInfo({
+        rate: 0,
+        amount: 0,
+        totalPrice: parseFloat(formData.price) || 0,
+        applicable: false,
+        hsnCode: ''
+      });
+    }
+  }, [formData.price, formData.subcategory, subcategories]);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -179,19 +291,62 @@ const ProductManagement = () => {
       }
 
       // Fetch all products to calculate counts
-      const allResponse = await getProductsByVendor(user._id, { limit: 1 });
+      const allResponse = await getProductsByVendor(user._id, { limit: 1000 });
+      
+      // Also fetch submitted products for pending verification count
+      let submittedCount = 0;
+      try {
+        const submittedResponse = await getVendorSubmittedProducts({ limit: 1000 });
+        if (submittedResponse?.success && submittedResponse?.data) {
+          submittedCount = submittedResponse.data.length;
+        }
+      } catch (submittedErr) {
+        console.error('fetchStatusCounts - Error fetching submitted products:', submittedErr);
+      }
 
-      // Calculate total value by fetching all products (or use a summary endpoint if available)
-      const allProductsResponse = await getProductsByVendor(user._id, { limit: 1000 });
-      const totalValue = allProductsResponse?.data?.reduce((sum, vp) => sum + (vp.product?.pricing?.sellingPrice || 0), 0) || 0;
+      if (allResponse?.success && allResponse?.data) {
+        const products = allResponse.data;
+        
+        // Calculate counts based on the new API structure and inventory status
+        const active = products.filter(p => 
+          p.status === 'active' && 
+          (p.inventory?.isInStock !== false) &&
+          (p.inventory?.stock === undefined || p.inventory.stock > 0)
+        ).length;
+        
+        const inactive = products.filter(p => 
+          p.status === 'inactive' || 
+          p.inventory?.isLowStock === true ||
+          (p.inventory?.stock !== undefined && 
+           p.inventory?.lowStockThreshold !== undefined &&
+           p.inventory.stock <= p.inventory.lowStockThreshold &&
+           p.inventory.stock > 0)
+        ).length;
+        
+        const outOfStock = products.filter(p => 
+          p.status === 'out_of_stock' || 
+          !p.inventory?.isInStock ||
+          (p.inventory?.stock !== undefined && p.inventory.stock === 0)
+        ).length;
+        
+        const totalValue = products.reduce((sum, p) => sum + (p.pricing?.basePrice || 0), 0);
+        
+        // Count pending verification products (products with certain statuses + submitted products)
+        const pendingVerification = products.filter(p => 
+          p.status === 'pending_verification' || 
+          p.status === 'pending_approval' || 
+          p.status === 'draft'
+        ).length + submittedCount;
 
-      setStatusCounts({
-        total: allResponse?.total || 0,
-        active: allResponse?.total || 0,
-        inactive: 0,
-        out_of_stock: 0,
-        totalValue: totalValue
-      });
+        setStatusCounts({
+          total: products.length,
+          active: active,
+          inactive: inactive,
+          out_of_stock: outOfStock,
+          pending_verification: pendingVerification,
+          totalValue: totalValue
+        });
+      }
     } catch (err) {
       console.error('fetchStatusCounts - Error:', err);
     }
@@ -208,6 +363,7 @@ const ProductManagement = () => {
         console.error('fetchProducts - No vendor ID found in user');
         setError('Vendor ID not found');
         setProducts([]);
+        setSubmittedProducts([]);
         setTotalProducts(0);
         setTotalPages(1);
         setLoading(false);
@@ -222,9 +378,38 @@ const ProductManagement = () => {
         category: filterCategory
       };
 
+      // Only send certain status filters to the API
+      // Handle complex filters (out_of_stock, inactive) client-side
+      if (filterStatus && 
+          filterStatus !== 'all' && 
+          filterStatus !== 'out_of_stock' && 
+          filterStatus !== 'inactive') {
+        params.status = filterStatus;
+      }
+
       console.log('fetchProducts - Calling getProductsByVendor with vendorId:', user._id, 'params:', params);
       const response = await getProductsByVendor(user._id, params);
       console.log('fetchProducts - API Response:', response);
+
+      // If we're on pending verification filter, also fetch submitted products
+      if (filterStatus === 'pending_verification') {
+        try {
+          console.log('fetchProducts - Also fetching vendor submitted products');
+          const submittedResponse = await getVendorSubmittedProducts(params);
+          console.log('fetchProducts - Submitted products response:', submittedResponse);
+          
+          if (submittedResponse?.success && submittedResponse?.data) {
+            setSubmittedProducts(submittedResponse.data);
+          } else {
+            setSubmittedProducts([]);
+          }
+        } catch (submittedErr) {
+          console.error('fetchProducts - Error fetching submitted products:', submittedErr);
+          setSubmittedProducts([]);
+        }
+      } else {
+        setSubmittedProducts([]);
+      }
 
       // Handle API response structure: { success, count, total, pagination: { page, pages }, data: [...] }
       if (response?.success && response?.data) {
@@ -242,6 +427,7 @@ const ProductManagement = () => {
       console.error('fetchProducts - Error:', err);
       setError(err.message);
       setProducts([]);
+      setSubmittedProducts([]);
       setTotalProducts(0);
       setTotalPages(1);
     } finally {
@@ -317,7 +503,100 @@ const ProductManagement = () => {
       } else if (editingProduct) {
         await updateProduct(editingProduct.id, formData);
       } else {
-        await addProduct(formData);
+        // Create comprehensive product data structure based on Product schema
+        const productData = {
+          // Basic Product Information
+          name: formData.name,
+          description: formData.description,
+          shortDescription: formData.shortDescription,
+          
+          // Product Identification
+          sku: formData.sku,
+          barcode: formData.barcode,
+          
+          // Categorization
+          category: formData.category,
+          subcategory: formData.subcategory,
+          brand: formData.brand,
+          tags: formData.tags,
+          
+          // Product Images
+          images: formData.images,
+          
+          // Pricing Information (masterPricing for backend)
+          pricing: {
+            basePrice: parseFloat(formData.price) || 0
+          },
+          
+          // Units and Measurements
+          unit: formData.unit,
+          weight: {
+            value: parseFloat(formData.weight) || 0,
+            unit: formData.weightUnit
+          },
+          dimensions: {
+            length: parseFloat(formData.dimensionLength) || null,
+            width: parseFloat(formData.dimensionWidth) || null,
+            height: parseFloat(formData.dimensionHeight) || null,
+            unit: formData.dimensionUnit
+          },
+          
+          // Product Attributes
+          attributes: {
+            // Expiry and Freshness
+            expiryDate: formData.expiryDate || null,
+            manufacturingDate: formData.manufacturingDate || null,
+            shelfLife: formData.shelfLife ? {
+              value: parseInt(formData.shelfLife),
+              unit: formData.shelfLifeUnit
+            } : null,
+            
+            // Food-specific attributes
+            nutritionalInfo: {
+              calories: parseFloat(formData.calories) || null,
+              protein: parseFloat(formData.protein) || null,
+              carbohydrates: parseFloat(formData.carbohydrates) || null,
+              fat: parseFloat(formData.fat) || null,
+              fiber: parseFloat(formData.fiber) || null,
+              sugar: parseFloat(formData.sugar) || null,
+              sodium: parseFloat(formData.sodium) || null
+            },
+            
+            // Storage and handling
+            storageInstructions: formData.storageInstructions,
+            temperature: formData.storageTemp,
+            
+            // Certifications and labels
+            certifications: formData.certifications,
+            
+            // Origin and sourcing
+            origin: {
+              country: formData.origin.country,
+              state: formData.origin.state,
+              city: formData.origin.city
+            },
+            
+            // Additional attributes
+            ingredients: formData.ingredients,
+            allergens: formData.allergens,
+            isPerishable: formData.perishable
+          },
+          
+          // SEO and Search
+          seo: {
+            metaTitle: formData.seoTitle,
+            metaDescription: formData.seoDescription
+          },
+          
+          // Delivery and Logistics
+          masterDelivery: {
+            category: formData.deliveryCategory,
+            weightCategory: formData.weightCategory,
+            specialHandling: formData.specialHandling
+          }
+        };
+
+        await addProduct(productData);
       }
       await fetchProducts();
       setShowModal(false);
@@ -368,8 +647,10 @@ const ProductManagement = () => {
       subcategory: '',
       stock: '',
       images: [],
-      status: 'active',
+      status: 'pending_approval',
       sku: '',
+      brand: '',
+      unit: '',
       weight: '',
       weightUnit: 'kg',
       dimensions: '',
@@ -382,6 +663,7 @@ const ProductManagement = () => {
       manufacturingDate: '',
       expiryDate: '',
       perishable: false,
+      storageTemp: '',
       // Nutritional Info
       calories: '',
       protein: '',
@@ -394,7 +676,28 @@ const ProductManagement = () => {
       ingredients: [],
       // SEO
       seoTitle: '',
-      seoDescription: ''
+      seoDescription: '',
+      // Missing Product Schema Fields
+      barcode: '',
+      shelfLife: '',
+      shelfLifeUnit: 'days',
+      storageInstructions: '',
+      certifications: [],
+      allergens: [],
+      origin: {
+        country: '',
+        state: '',
+        city: ''
+      },
+      // Delivery settings
+      deliveryCategory: 'standard',
+      weightCategory: 'medium',
+      specialHandling: [],
+      // Dimensions breakdown
+      dimensionLength: '',
+      dimensionWidth: '',
+      dimensionHeight: '',
+      dimensionUnit: 'cm'
     });
     setEditingProduct(null);
     setModalMode('add');
@@ -406,6 +709,14 @@ const ProductManagement = () => {
     });
     setAvailableSearchTerm('');
     setAvailablePage(1);
+    // Reset GST info
+    setGstInfo({
+      rate: 0,
+      amount: 0,
+      totalPrice: 0,
+      applicable: false,
+      hsnCode: ''
+    });
   };
 
   // Reset to page 1 when search or filters change
@@ -425,8 +736,50 @@ const ProductManagement = () => {
   };
 
   // Products are already filtered and paginated by the API
-  // No need for client-side filtering
-  const currentProducts = products;
+  // Apply additional client-side filtering and combine product types
+  let currentProducts = products;
+
+  // Special handling for pending verification - combine with submitted products
+  if (filterStatus === 'pending_verification') {
+    currentProducts = [
+      // Filter regular vendor products to only show pending ones
+      ...products.filter(product => 
+        product.status === 'pending_approval' || 
+        product.status === 'pending_verification' ||
+        product.approvalStatus?.status === 'pending' ||
+        product.approvalStatus?.status === 'under_review'
+      ), 
+      // Add submitted products (these are already pending by definition)
+      ...submittedProducts
+    ];
+  } 
+  // Special handling for out of stock - filter by inventory
+  else if (filterStatus === 'out_of_stock') {
+    currentProducts = products.filter(product => 
+      product.status === 'out_of_stock' || 
+      !product.inventory?.isInStock ||
+      (product.inventory?.stock !== undefined && product.inventory.stock === 0)
+    );
+  }
+  // Special handling for active - filter by status and stock
+  else if (filterStatus === 'active') {
+    currentProducts = products.filter(product => 
+      product.status === 'active' && 
+      (product.inventory?.isInStock !== false) &&
+      (product.inventory?.stock === undefined || product.inventory.stock > 0)
+    );
+  }
+  // Special handling for inactive/low stock
+  else if (filterStatus === 'inactive') {
+    currentProducts = products.filter(product => 
+      product.status === 'inactive' || 
+      product.inventory?.isLowStock === true ||
+      (product.inventory?.stock !== undefined && 
+       product.inventory?.lowStockThreshold !== undefined &&
+       product.inventory.stock <= product.inventory.lowStockThreshold &&
+       product.inventory.stock > 0)
+    );
+  }
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -445,13 +798,15 @@ const ProductManagement = () => {
     const styles = {
       active: 'bg-green-100 text-green-800',
       inactive: 'bg-red-100 text-red-800',
-      out_of_stock: 'bg-yellow-100 text-yellow-800'
+      out_of_stock: 'bg-yellow-100 text-yellow-800',
+      pending_approval: 'bg-purple-100 text-purple-800'
     };
 
     const labels = {
       active: 'Active',
       inactive: 'Inactive',
-      out_of_stock: 'Out of Stock'
+      out_of_stock: 'Out of Stock',
+      pending_approval: 'Pending Approval'
     };
 
     return (
@@ -501,14 +856,14 @@ const ProductManagement = () => {
       </div>
 
       {/* Status Cards - Super Compact */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
         {/* Total Items */}
         <button
           onClick={() => {
             setFilterStatus('all');
             setCurrentPage(1);
           }}
-          className={`bg-white rounded-lg  p-3 hover: transition-all text-left ${
+          className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-all text-left ${
             filterStatus === 'all' ? 'ring-2 ring-blue-500' : ''
           }`}
         >
@@ -529,7 +884,7 @@ const ProductManagement = () => {
             setFilterStatus('active');
             setCurrentPage(1);
           }}
-          className={`bg-white rounded-lg  p-3 hover: transition-all text-left ${
+          className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-green-300 transition-all text-left ${
             filterStatus === 'active' ? 'ring-2 ring-green-500' : ''
           }`}
         >
@@ -550,7 +905,7 @@ const ProductManagement = () => {
             setFilterStatus('inactive');
             setCurrentPage(1);
           }}
-          className={`bg-white rounded-lg  p-3 hover: transition-all text-left ${
+          className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-yellow-300 transition-all text-left ${
             filterStatus === 'inactive' ? 'ring-2 ring-yellow-500' : ''
           }`}
         >
@@ -571,7 +926,7 @@ const ProductManagement = () => {
             setFilterStatus('out_of_stock');
             setCurrentPage(1);
           }}
-          className={`bg-white rounded-lg  p-3 hover: transition-all text-left ${
+          className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-red-300 transition-all text-left ${
             filterStatus === 'out_of_stock' ? 'ring-2 ring-red-500' : ''
           }`}
         >
@@ -582,6 +937,27 @@ const ProductManagement = () => {
             </div>
             <div className="bg-red-100 rounded-lg p-2">
               <XCircleIcon className="h-5 w-5 text-red-600" />
+            </div>
+          </div>
+        </button>
+
+        {/* Pending Verification */}
+        <button
+          onClick={() => {
+            setFilterStatus('pending_verification');
+            setCurrentPage(1);
+          }}
+          className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-purple-300 transition-all text-left ${
+            filterStatus === 'pending_verification' ? 'ring-2 ring-purple-500' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-600">Pending Verification</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">{statusCounts.pending_verification || 0}</p>
+            </div>
+            <div className="bg-purple-100 rounded-lg p-2">
+              <ClockIcon className="h-5 w-5 text-purple-600" />
             </div>
           </div>
         </button>
@@ -612,6 +988,7 @@ const ProductManagement = () => {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="out_of_stock">Out of Stock</option>
+            <option value="pending_verification">Pending Verification</option>
           </select>
 
           {/* Category Filter */}
@@ -659,7 +1036,7 @@ const ProductManagement = () => {
       {/* Products View - List or Cards */}
       {viewMode === 'list' ? (
         /* List View - Table - Super Compact */
-        <div className="bg-white  rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -689,22 +1066,31 @@ const ProductManagement = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentProducts.map((vendorProduct) => {
-                  // VendorProduct model structure from /vendor-products/vendor/:vendorId endpoint
-                  const productData = vendorProduct.product || {};
-                  const price = productData.pricing?.sellingPrice || 0;
+                  // Use the API response structure directly
+                  const price = vendorProduct.pricing?.breakdown?.totalAmount || vendorProduct.pricing?.basePrice || 0;
                   const stock = vendorProduct.inventory?.stock || 0;
                   const status = vendorProduct.status || 'active';
+                  
+                  // Check if this is a pending verification product
+                  // This includes both selected products with pending status and submitted products
+                  const isSubmittedProduct = vendorProduct.isSubmitted || vendorProduct.submissionType === 'vendor_submitted';
+                  const isPendingVerification = filterStatus === 'pending_verification' || 
+                                              status === 'pending_approval' || 
+                                              status === 'pending_verification' ||
+                                              vendorProduct.approvalStatus?.status === 'pending' ||
+                                              vendorProduct.approvalStatus?.status === 'under_review' ||
+                                              isSubmittedProduct;
 
                   return (
-                  <tr key={vendorProduct._id || vendorProduct.id} className="hover:bg-gray-50">
+                  <tr key={vendorProduct.id || vendorProduct._id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-8 w-8">
-                          {productData.images && productData.images.length > 0 ? (
+                          {vendorProduct.images && vendorProduct.images.length > 0 ? (
                             <img
                               className="h-8 w-8 rounded-md object-cover"
-                              src={productData.images[0]?.url || productData.images[0]}
-                              alt={productData.images[0]?.altText || productData.name}
+                              src={vendorProduct.images[0]?.url || vendorProduct.images[0]}
+                              alt={vendorProduct.images[0]?.altText || vendorProduct.name}
                             />
                           ) : (
                             <div className="h-8 w-8 rounded-md bg-gray-100 flex items-center justify-center">
@@ -713,8 +1099,8 @@ const ProductManagement = () => {
                           )}
                         </div>
                         <div className="ml-2">
-                          <div className="text-xs font-medium text-gray-900">{productData.name || 'N/A'}</div>
-                          <div className="text-xs text-gray-500">{productData.sku || 'N/A'}</div>
+                          <div className="text-xs font-medium text-gray-900">{vendorProduct.name || 'N/A'}</div>
+                          <div className="text-xs text-gray-500">{vendorProduct.sku || 'N/A'}</div>
                         </div>
                       </div>
                     </td>
@@ -722,46 +1108,62 @@ const ProductManagement = () => {
                       <div className="flex items-center">
                         <TagIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
                         <span className="text-xs text-gray-900">
-                          {vendorProduct.category?.name || productData.category?.name || 'N/A'}
+                          {vendorProduct.category?.name || 'N/A'}
                         </span>
                       </div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                      ₹{price}
+                      {isPendingVerification ? (
+                        <div className="flex flex-col">
+                          <span className="text-xs text-gray-500">-</span>
+                          <span className="text-xs text-gray-400">(pending)</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col">
+                          <span className="font-medium">₹{Math.round(price)}</span>
+                          <span className="text-xs text-gray-500">(incl. all taxes)</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <CubeIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
-                        <span className="text-xs text-gray-500">{stock}</span>
-                      </div>
+                      {isPendingVerification ? (
+                        <div className="flex items-center">
+                          <CubeIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
+                          <span className="text-xs text-gray-500">-</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <CubeIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
+                          <span className="text-xs text-gray-500">{stock}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {getStatusBadge(status)}
+                      {getStatusBadge(isPendingVerification ? 'pending_approval' : status)}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        vendorProduct.isAvailable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {vendorProduct.isAvailable ? 'Available' : 'Unavailable'}
-                      </span>
+                      {isPendingVerification ? (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Under Review
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          vendorProduct.isAvailable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {vendorProduct.isAvailable ? 'Available' : 'Unavailable'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-right text-xs font-medium">
                       <div className="flex justify-end space-x-1.5">
-                        <button
-                          onClick={() => handleEdit(vendorProduct)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          <PencilIcon className="h-3.5 w-3.5" />
-                        </button>
                         <button className="text-gray-600 hover:text-gray-900">
                           <EyeIcon className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(vendorProduct._id || vendorProduct.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <TrashIcon className="h-3.5 w-3.5" />
-                        </button>
+                        {isPendingVerification && (
+                          <button className="text-blue-600 hover:text-blue-900" title="Edit Draft">
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -828,21 +1230,23 @@ const ProductManagement = () => {
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {currentProducts.map((vendorProduct) => {
-              // VendorProduct model structure from /vendor-products/vendor/:vendorId endpoint
-              const productData = vendorProduct.product || {};
-              const price = productData.pricing?.sellingPrice || 0;
+              // Use the API response structure directly
+              const price = vendorProduct.pricing?.breakdown?.totalAmount || vendorProduct.pricing?.basePrice || 0;
               const stock = vendorProduct.inventory?.stock || 0;
               const status = vendorProduct.status || 'active';
+              
+              // Check if this is a pending verification product
+              const isPendingVerification = status === 'pending_approval' || vendorProduct.approvalStatus?.status === 'pending';
 
               return (
-                <div key={vendorProduct._id || vendorProduct.id} className="bg-white  rounded-lg overflow-hidden hover:shadow transition-shadow">
+                <div key={vendorProduct.id || vendorProduct._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow transition-shadow">
                   {/* Product Image */}
                   <div className="relative h-32 bg-gray-100">
-                    {productData.images && productData.images.length > 0 ? (
+                    {vendorProduct.images && vendorProduct.images.length > 0 ? (
                       <img
                         className="w-full h-full object-cover"
-                        src={productData.images[0]?.url || productData.images[0]}
-                        alt={productData.images[0]?.altText || productData.name}
+                        src={vendorProduct.images[0]?.url || vendorProduct.images[0]}
+                        alt={vendorProduct.images[0]?.altText || vendorProduct.name}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -851,24 +1255,36 @@ const ProductManagement = () => {
                     )}
                     {/* Status Badge */}
                     <div className="absolute top-2 right-2">
-                      {getStatusBadge(status)}
+                      {getStatusBadge(isPendingVerification ? 'pending_approval' : status)}
                     </div>
                   </div>
 
                   {/* Product Details */}
                   <div className="p-2.5">
                     <div className="mb-2">
-                      <h3 className="text-xs font-semibold text-gray-900 mb-0.5 truncate">{productData.name || 'N/A'}</h3>
-                      <p className="text-xs text-gray-500">{productData.sku || 'N/A'}</p>
+                      <h3 className="text-xs font-semibold text-gray-900 mb-0.5 truncate">{vendorProduct.name || 'N/A'}</h3>
+                      <p className="text-xs text-gray-500">{vendorProduct.sku || 'N/A'}</p>
                     </div>
 
                     <div className="space-y-1.5 mb-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="flex items-center text-gray-600">
                           <TagIcon className="h-3 w-3 mr-1" />
-                          {vendorProduct.category?.name || productData.category?.name || 'N/A'}
+                          {vendorProduct.category?.name || 'N/A'}
                         </span>
-                        <span className="text-sm font-bold text-gray-900">₹{price}</span>
+                        <div className="text-right">
+                          {isPendingVerification ? (
+                            <div>
+                              <div className="text-sm text-gray-500">-</div>
+                              <div className="text-xs text-gray-400">(pending)</div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="text-sm font-bold text-gray-900">₹{Math.round(price)}</div>
+                              <div className="text-xs text-gray-500">(incl. all taxes)</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
@@ -876,39 +1292,37 @@ const ProductManagement = () => {
                           <CubeIcon className="h-3 w-3 mr-1" />
                           Stock:
                         </span>
-                        <span className="text-xs text-gray-500">{stock}</span>
+                        <span className="text-xs text-gray-500">{isPendingVerification ? '-' : stock}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">Available:</span>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          vendorProduct.isAvailable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {vendorProduct.isAvailable ? 'Yes' : 'No'}
-                        </span>
+                        <span className="text-gray-600">Status:</span>
+                        {isPendingVerification ? (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Under Review
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            vendorProduct.isAvailable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {vendorProduct.isAvailable ? 'Available' : 'Unavailable'}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex space-x-1.5 pt-2 border-t border-gray-200">
-                      <button
-                        onClick={() => handleEdit(vendorProduct)}
-                        className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
-                      >
-                        <PencilIcon className="h-3 w-3 mr-1" />
-                        Edit
+                    <div className="flex justify-center pt-2 border-t border-gray-200 gap-2">
+                      <button className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        <EyeIcon className="h-3 w-3 mr-1" />
+                        View
                       </button>
-                      <button
-                        className="inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
-                      >
-                        <EyeIcon className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(vendorProduct._id || vendorProduct.id)}
-                        className="inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-red-600 bg-white hover:bg-red-50"
-                      >
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
+                      {isPendingVerification && (
+                        <button className="inline-flex items-center justify-center px-3 py-1.5 border border-blue-300 rounded-md text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100">
+                          <PencilIcon className="h-3 w-3 mr-1" />
+                          Edit
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -917,7 +1331,7 @@ const ProductManagement = () => {
           </div>
 
           {/* Pagination for Card View - Super Compact */}
-          <div className="bg-white  rounded-lg px-3 py-2 flex items-center justify-between">
+          <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -972,9 +1386,9 @@ const ProductManagement = () => {
 
       {/* Add/Edit/Select Product Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4 py-8">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowModal(false)}></div>
+            <div className="fixed inset-0 transition-opacity" onClick={() => setShowModal(false)}></div>
 
             <div className={`relative bg-white rounded-lg text-left overflow-hidden  transform transition-all w-full ${modalMode === 'select' ? 'max-w-4xl' : 'max-w-7xl'}`}>
               <form onSubmit={handleSubmit}>
@@ -1134,23 +1548,20 @@ const ProductManagement = () => {
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {/* Essential Information Section */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center mb-3">
-                          <div className="bg-green-600 rounded-lg p-1.5 mr-2.5">
-                            <CubeIcon className="h-4 w-4 text-white" />
+                    <div className="space-y-3">
+                      {/* Basic Information Section */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <div className="bg-blue-600 rounded p-1 mr-2">
+                            <CubeIcon className="h-3 w-3 text-white" />
                           </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">Essential Information</h3>
-                            <p className="text-xs text-gray-500">Required fields to create your product</p>
-                          </div>
+                          <h3 className="text-sm font-semibold text-gray-900">Basic Information</h3>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-3">
+                        <div className="grid grid-cols-6 gap-2">
                           {/* Product Name */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                               Product Name <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -1158,24 +1569,39 @@ const ProductManagement = () => {
                               required
                               value={formData.name}
                               onChange={(e) => setFormData({...formData, name: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                               placeholder="Enter product name"
                             />
                           </div>
 
-                          {/* SKU (Auto-generated option) */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                          {/* Brand */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Brand <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={formData.brand}
+                              onChange={(e) => setFormData({...formData, brand: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="Brand name"
+                            />
+                          </div>
+
+                          {/* SKU */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                               SKU <span className="text-red-500">*</span>
                             </label>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1">
                               <input
                                 type="text"
                                 required
                                 value={formData.sku}
                                 onChange={(e) => setFormData({...formData, sku: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="e.g., APL-ORG-001"
+                                className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                placeholder="SKU-001"
                               />
                               <button
                                 type="button"
@@ -1183,16 +1609,94 @@ const ProductManagement = () => {
                                   const randomSKU = `SKU-${Date.now().toString().slice(-6)}`;
                                   setFormData({...formData, sku: randomSKU});
                                 }}
-                                className="px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 whitespace-nowrap transition-colors"
+                                className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
                               >
                                 Auto
                               </button>
                             </div>
                           </div>
 
+                          {/* Barcode */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Barcode
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.barcode}
+                              onChange={(e) => setFormData({...formData, barcode: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="123456789012"
+                            />
+                          </div>
+
+                          {/* Unit */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Unit <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              required
+                              value={formData.unit}
+                              onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="">Select</option>
+                              <option value="kg">kg</option>
+                              <option value="g">g</option>
+                              <option value="l">l</option>
+                              <option value="ml">ml</option>
+                              <option value="piece">piece</option>
+                              <option value="pack">pack</option>
+                              <option value="dozen">dozen</option>
+                              <option value="bundle">bundle</option>
+                              <option value="box">box</option>
+                              <option value="bottle">bottle</option>
+                              <option value="can">can</option>
+                              <option value="pouch">pouch</option>
+                            </select>
+                          </div>
+
+                          {/* Weight Value */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Weight <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              required
+                              min="0"
+                              step="0.01"
+                              value={formData.weight}
+                              onChange={(e) => setFormData({...formData, weight: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
+                          </div>
+
+                          {/* Weight Unit */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Weight Unit <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              required
+                              value={formData.weightUnit}
+                              onChange={(e) => setFormData({...formData, weightUnit: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="kg">kg</option>
+                              <option value="g">g</option>
+                              <option value="l">l</option>
+                              <option value="ml">ml</option>
+                              <option value="piece">piece</option>
+                              <option value="pack">pack</option>
+                            </select>
+                          </div>
+
                           {/* Category */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                               Category <span className="text-red-500">*</span>
                             </label>
                             <select
@@ -1201,10 +1705,7 @@ const ProductManagement = () => {
                               onChange={(e) => {
                                 const selectedCategory = e.target.value;
                                 setFormData({...formData, category: selectedCategory, subcategory: ''});
-
-                                // Fetch subcategories for the selected category
                                 if (selectedCategory) {
-                                  // Find the category object to get its ID
                                   const categoryObj = categories.find(cat => cat._id === selectedCategory || cat.id === selectedCategory);
                                   if (categoryObj) {
                                     fetchSubcategories(categoryObj._id || categoryObj.id);
@@ -1213,7 +1714,7 @@ const ProductManagement = () => {
                                   setSubcategories([]);
                                 }
                               }}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             >
                               <option value="">Select category</option>
                               {categories.map(category => (
@@ -1225,14 +1726,15 @@ const ProductManagement = () => {
                           </div>
 
                           {/* Subcategory */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                              Subcategory
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Subcategory <span className="text-red-500">*</span>
                             </label>
                             <select
+                              required
                               value={formData.subcategory}
                               onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                               disabled={!formData.category || subcategories.length === 0}
                             >
                               <option value="">Select subcategory</option>
@@ -1244,13 +1746,13 @@ const ProductManagement = () => {
                             </select>
                           </div>
 
-                          {/* Selling Price */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                              Selling Price (₹) <span className="text-red-500">*</span>
+                          {/* Base Price */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Base Price (₹) <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
+                              <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">₹</span>
                               <input
                                 type="number"
                                 required
@@ -1258,351 +1760,572 @@ const ProductManagement = () => {
                                 step="0.01"
                                 value={formData.price}
                                 onChange={(e) => setFormData({...formData, price: e.target.value})}
-                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                className="block w-full pl-6 pr-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                 placeholder="0.00"
                               />
                             </div>
                           </div>
 
-                          {/* Weight */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Weight</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={formData.weight}
-                              onChange={(e) => setFormData({...formData, weight: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                              placeholder="0.00"
+                          {/* GST Info Display */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              GST ({gstInfo.rate}%)
+                            </label>
+                            <div className="px-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded">
+                              ₹{gstInfo.amount}
+                            </div>
+                          </div>
+
+                          {/* Total Price Display */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Total Price
+                            </label>
+                            <div className="px-2 py-1.5 text-xs bg-blue-50 border border-blue-200 rounded font-medium text-blue-800">
+                              ₹{gstInfo.totalPrice}
+                            </div>
+                          </div>
+
+                          {/* Shelf Life */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Shelf Life
+                            </label>
+                            <div className="flex gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.shelfLife}
+                                onChange={(e) => setFormData({...formData, shelfLife: e.target.value})}
+                                className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                placeholder="0"
+                              />
+                              <select
+                                value={formData.shelfLifeUnit}
+                                onChange={(e) => setFormData({...formData, shelfLifeUnit: e.target.value})}
+                                className="block px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="days">Days</option>
+                                <option value="months">Months</option>
+                                <option value="years">Years</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Description - Full Width */}
+                          <div className="col-span-6">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Description <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                              required
+                              rows={2}
+                              value={formData.description}
+                              onChange={(e) => setFormData({...formData, description: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
+                              placeholder="Detailed product description..."
                             />
                           </div>
 
-                          {/* Weight Unit */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Weight Unit</label>
-                            <select
-                              value={formData.weightUnit}
-                              onChange={(e) => setFormData({...formData, weightUnit: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                            >
-                              <option value="kg">Kilogram (kg)</option>
-                              <option value="g">Gram (g)</option>
-                              <option value="mg">Milligram (mg)</option>
-                              <option value="lb">Pound (lb)</option>
-                              <option value="oz">Ounce (oz)</option>
-                              <option value="l">Liter (L)</option>
-                              <option value="ml">Milliliter (ml)</option>
-                              <option value="piece">Piece</option>
-                              <option value="dozen">Dozen</option>
-                              <option value="pack">Pack</option>
-                            </select>
-                          </div>
-
-                          {/* Dimensions */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Dimensions</label>
+                          {/* Short Description */}
+                          <div className="col-span-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Short Description</label>
                             <input
                               type="text"
-                              value={formData.dimensions}
-                              onChange={(e) => setFormData({...formData, dimensions: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                              placeholder="L x W x H"
+                              value={formData.shortDescription}
+                              onChange={(e) => setFormData({...formData, shortDescription: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="Brief summary..."
                             />
                           </div>
 
                           {/* Product Images */}
-                          <div className="col-span-4">
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Product Images</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={(e) => {
-                                  const files = Array.from(e.target.files);
-                                  setFormData({...formData, images: files});
-                                }}
-                                className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:transition-colors"
-                              />
-                              {formData.images.length > 0 && (
-                                <span className="text-xs text-gray-600 whitespace-nowrap">{formData.images.length} file{formData.images.length > 1 ? 's' : ''}</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Product Description - Full Width */}
-                          <div className="col-span-4">
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Product Description</label>
-                            <textarea
-                              rows={2}
-                              value={formData.description}
-                              onChange={(e) => setFormData({...formData, description: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
-                              placeholder="Brief description of your product..."
+                          <div className="col-span-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Product Images</label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => {
+                                const files = Array.from(e.target.files);
+                                setFormData({...formData, images: files});
+                              }}
+                              className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                             />
                           </div>
                         </div>
                       </div>
 
-                      {/* Advanced Pricing Section */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center mb-3">
-                          <div className="bg-gray-600 rounded-lg p-1.5 mr-2.5">
-                            <TagIcon className="h-4 w-4 text-white" />
+                      {/* Pricing Details */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <div className="bg-green-600 rounded p-1 mr-2">
+                            <TagIcon className="h-3 w-3 text-white" />
                           </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">Advanced Pricing</h3>
-                            <p className="text-xs text-gray-500">Discounts and master pricing controls</p>
-                          </div>
-                          <span className="ml-auto text-xs text-gray-400">0% complete</span>
+                          <h3 className="text-sm font-semibold text-gray-900">Pricing Details</h3>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                          {/* Cost Price */}
+                        <div className="grid grid-cols-3 gap-2">
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Cost Price</label>
-                            <div className="relative">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={formData.costPrice}
-                                onChange={(e) => setFormData({...formData, costPrice: e.target.value})}
-                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="0.00"
-                              />
-                            </div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Cost Price (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={formData.costPrice}
+                              onChange={(e) => setFormData({...formData, costPrice: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
                           </div>
 
-                          {/* Suggested MRP */}
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Suggested MRP</label>
-                            <div className="relative">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={formData.suggestedMRP}
-                                onChange={(e) => setFormData({...formData, suggestedMRP: e.target.value})}
-                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="0.00"
-                              />
-                            </div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Suggested MRP (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={formData.suggestedMRP}
+                              onChange={(e) => setFormData({...formData, suggestedMRP: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
                           </div>
 
-                          {/* Min Selling Price */}
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Min Selling Price</label>
-                            <div className="relative">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-medium">₹</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={formData.minSellingPrice}
-                                onChange={(e) => setFormData({...formData, minSellingPrice: e.target.value})}
-                                className="block w-full pl-8 pr-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="0.00"
-                              />
-                            </div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Min Selling Price (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={formData.minSellingPrice}
+                              onChange={(e) => setFormData({...formData, minSellingPrice: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
                           </div>
                         </div>
                       </div>
 
-                      {/* Additional Details Section */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center mb-3">
-                          <div className="bg-gray-600 rounded-lg p-1.5 mr-2.5">
-                            <ClockIcon className="h-4 w-4 text-white" />
+                      {/* Product Attributes */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <div className="bg-purple-600 rounded p-1 mr-2">
+                            <ClockIcon className="h-3 w-3 text-white" />
                           </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">Additional Details</h3>
-                            <p className="text-xs text-gray-500">Nutritional info, ingredients, dates</p>
-                          </div>
-                          <span className="ml-auto text-xs text-gray-400">0% complete</span>
+                          <h3 className="text-sm font-semibold text-gray-900">Product Attributes</h3>
                         </div>
 
-                        <div className="space-y-3">
-                          {/* Short Description, Manufacturing Date, Expiry Date, Perishable */}
-                          <div className="grid grid-cols-4 gap-3">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Short Description</label>
-                              <input
-                                type="text"
-                                value={formData.shortDescription}
-                                onChange={(e) => setFormData({...formData, shortDescription: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="Brief summary..."
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Manufacturing Date</label>
-                              <input
-                                type="date"
-                                value={formData.manufacturingDate}
-                                onChange={(e) => setFormData({...formData, manufacturingDate: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Expiry Date</label>
-                              <input
-                                type="date"
-                                value={formData.expiryDate}
-                                onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
-
-                            <div className="flex items-end">
-                              <label className="flex items-center cursor-pointer pb-2">
-                                <input
-                                  type="checkbox"
-                                  checked={formData.perishable}
-                                  onChange={(e) => setFormData({...formData, perishable: e.target.checked})}
-                                  className="rounded border-gray-300 text-blue-600  focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                                />
-                                <span className="ml-2 text-xs font-medium text-gray-700">Perishable</span>
-                              </label>
-                            </div>
+                        <div className="grid grid-cols-6 gap-2">
+                          {/* Manufacturing Date */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Manufacturing Date</label>
+                            <input
+                              type="date"
+                              value={formData.manufacturingDate}
+                              onChange={(e) => setFormData({...formData, manufacturingDate: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
                           </div>
 
-                          {/* Nutritional Info (per 100g) */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Nutritional Info (per 100g)</label>
-                            <div className="grid grid-cols-6 gap-3">
-                              <input
-                                type="number"
-                                min="0"
-                                value={formData.calories}
-                                onChange={(e) => setFormData({...formData, calories: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="Calories"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                value={formData.protein}
-                                onChange={(e) => setFormData({...formData, protein: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="Protein"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                value={formData.carbohydrates}
-                                onChange={(e) => setFormData({...formData, carbohydrates: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="Carbohydrates"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                value={formData.fat}
-                                onChange={(e) => setFormData({...formData, fat: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="Fat"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                value={formData.fiber}
-                                onChange={(e) => setFormData({...formData, fiber: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="Fiber"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                value={formData.sugar}
-                                onChange={(e) => setFormData({...formData, sugar: e.target.value})}
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                                placeholder="Sugar"
-                              />
-                            </div>
+                          {/* Expiry Date */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Expiry Date</label>
+                            <input
+                              type="date"
+                              value={formData.expiryDate}
+                              onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
                           </div>
 
-                          {/* Tags and Ingredients */}
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Tags</label>
-                              <input
-                                type="text"
-                                placeholder="Add tag..."
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
+                          {/* Storage Temperature */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Storage Temp</label>
+                            <select
+                              value={formData.storageTemp}
+                              onChange={(e) => setFormData({...formData, storageTemp: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="">Select</option>
+                              <option value="room_temperature">Room Temp</option>
+                              <option value="refrigerated">Refrigerated</option>
+                              <option value="frozen">Frozen</option>
+                            </select>
+                          </div>
 
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Ingredients</label>
+                          {/* Perishable */}
+                          <div className="col-span-1 flex items-end">
+                            <label className="flex items-center cursor-pointer pb-1.5">
                               <input
-                                type="text"
-                                placeholder="Add ingredient..."
-                                className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                                type="checkbox"
+                                checked={formData.perishable}
+                                onChange={(e) => setFormData({...formData, perishable: e.target.checked})}
+                                className="rounded border-gray-300 text-blue-600 focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                               />
-                            </div>
+                              <span className="ml-1.5 text-xs font-medium text-gray-700">Perishable</span>
+                            </label>
+                          </div>
+
+                          {/* Delivery Category */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Delivery Type</label>
+                            <select
+                              value={formData.deliveryCategory}
+                              onChange={(e) => setFormData({...formData, deliveryCategory: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="standard">Standard</option>
+                              <option value="express">Express</option>
+                              <option value="cold_chain">Cold Chain</option>
+                              <option value="fragile">Fragile</option>
+                            </select>
+                          </div>
+
+                          {/* Weight Category */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Weight Category</label>
+                            <select
+                              value={formData.weightCategory}
+                              onChange={(e) => setFormData({...formData, weightCategory: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="light">Light</option>
+                              <option value="medium">Medium</option>
+                              <option value="heavy">Heavy</option>
+                            </select>
+                          </div>
+
+                          {/* Storage Instructions - Full Width */}
+                          <div className="col-span-6">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Storage Instructions</label>
+                            <textarea
+                              rows={2}
+                              value={formData.storageInstructions}
+                              onChange={(e) => setFormData({...formData, storageInstructions: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
+                              placeholder="Special storage requirements..."
+                            />
                           </div>
                         </div>
                       </div>
 
-                      {/* SEO & Optimization Section */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center mb-3">
-                          <div className="bg-green-600 rounded-lg p-1.5 mr-2.5">
-                            <MagnifyingGlassIcon className="h-4 w-4 text-white" />
+                      {/* Dimensions and Origin Section */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <div className="bg-indigo-600 rounded p-1 mr-2">
+                            <CubeIcon className="h-3 w-3 text-white" />
                           </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">SEO & Optimization</h3>
-                            <p className="text-xs text-gray-500">Search optimization (Free delivery included)</p>
-                          </div>
+                          <h3 className="text-sm font-semibold text-gray-900">Dimensions & Origin</h3>
                         </div>
 
-                        <div className="space-y-3">
-                          {/* SEO Title */}
+                        <div className="grid grid-cols-6 gap-2">
+                          {/* Dimensions */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Length</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={formData.dimensionLength}
+                              onChange={(e) => setFormData({...formData, dimensionLength: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="0.0"
+                            />
+                          </div>
+
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Width</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={formData.dimensionWidth}
+                              onChange={(e) => setFormData({...formData, dimensionWidth: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="0.0"
+                            />
+                          </div>
+
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Height</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={formData.dimensionHeight}
+                              onChange={(e) => setFormData({...formData, dimensionHeight: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="0.0"
+                            />
+                          </div>
+
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                            <select
+                              value={formData.dimensionUnit}
+                              onChange={(e) => setFormData({...formData, dimensionUnit: e.target.value})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="cm">cm</option>
+                              <option value="mm">mm</option>
+                              <option value="inch">inch</option>
+                            </select>
+                          </div>
+
+                          {/* Origin */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Country</label>
+                            <input
+                              type="text"
+                              value={formData.origin.country}
+                              onChange={(e) => setFormData({...formData, origin: {...formData.origin, country: e.target.value}})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="India"
+                            />
+                          </div>
+
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
+                            <input
+                              type="text"
+                              value={formData.origin.state}
+                              onChange={(e) => setFormData({...formData, origin: {...formData.origin, state: e.target.value}})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="Maharashtra"
+                            />
+                          </div>
+
+                          {/* City */}
+                          <div className="col-span-1">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
+                            <input
+                              type="text"
+                              value={formData.origin.city}
+                              onChange={(e) => setFormData({...formData, origin: {...formData.origin, city: e.target.value}})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="Mumbai"
+                            />
+                          </div>
+
+                          {/* Certifications */}
+                          <div className="col-span-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Certifications</label>
+                            <div className="grid grid-cols-4 gap-1">
+                              {['organic', 'non_gmo', 'gluten_free', 'vegan', 'vegetarian', 'halal', 'kosher', 'fair_trade'].map(cert => (
+                                <label key={cert} className="flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.certifications.includes(cert)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormData({...formData, certifications: [...formData.certifications, cert]});
+                                      } else {
+                                        setFormData({...formData, certifications: formData.certifications.filter(c => c !== cert)});
+                                      }
+                                    }}
+                                    className="rounded border-gray-300 text-blue-600 focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                                  />
+                                  <span className="ml-1 text-xs text-gray-700 capitalize">{cert.replace('_', ' ')}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Special Handling */}
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Special Handling</label>
+                            <div className="grid grid-cols-2 gap-1">
+                              {['fragile', 'perishable', 'temperature_controlled', 'refrigerated', 'hazardous'].map(handling => (
+                                <label key={handling} className="flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.specialHandling.includes(handling)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormData({...formData, specialHandling: [...formData.specialHandling, handling]});
+                                      } else {
+                                        setFormData({...formData, specialHandling: formData.specialHandling.filter(h => h !== handling)});
+                                      }
+                                    }}
+                                    className="rounded border-gray-300 text-blue-600 focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                                  />
+                                  <span className="ml-1 text-xs text-gray-700 capitalize">{handling.replace('_', ' ')}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Allergens */}
+                          <div className="col-span-6">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Allergens (comma separated)</label>
+                            <input
+                              type="text"
+                              value={formData.allergens.join(', ')}
+                              onChange={(e) => setFormData({...formData, allergens: e.target.value.split(',').map(allergen => allergen.trim()).filter(allergen => allergen)})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="nuts, dairy, soy, gluten"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nutritional Information */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <div className="bg-orange-600 rounded p-1 mr-2">
+                            <CheckCircleIcon className="h-3 w-3 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-gray-900">Nutritional Info (per 100g)</h3>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.calories}
+                            onChange={(e) => setFormData({...formData, calories: e.target.value})}
+                            className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Calories"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.protein}
+                            onChange={(e) => setFormData({...formData, protein: e.target.value})}
+                            className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Protein (g)"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.carbohydrates}
+                            onChange={(e) => setFormData({...formData, carbohydrates: e.target.value})}
+                            className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Carbs (g)"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.fat}
+                            onChange={(e) => setFormData({...formData, fat: e.target.value})}
+                            className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Fat (g)"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.fiber}
+                            onChange={(e) => setFormData({...formData, fiber: e.target.value})}
+                            className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Fiber (g)"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.sugar}
+                            onChange={(e) => setFormData({...formData, sugar: e.target.value})}
+                            className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Sugar (g)"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.sodium}
+                            onChange={(e) => setFormData({...formData, sodium: e.target.value})}
+                            className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Sodium (mg)"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tags and Ingredients */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <div className="bg-indigo-600 rounded p-1 mr-2">
+                            <TagIcon className="h-3 w-3 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-gray-900">Tags & Ingredients</h3>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">SEO Title</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+                            <input
+                              type="text"
+                              value={formData.tags.join(', ')}
+                              onChange={(e) => setFormData({...formData, tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="organic, fresh, natural"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Ingredients (comma separated)</label>
+                            <input
+                              type="text"
+                              value={formData.ingredients.join(', ')}
+                              onChange={(e) => setFormData({...formData, ingredients: e.target.value.split(',').map(ing => ing.trim()).filter(ing => ing)})}
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="flour, sugar, salt"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SEO Section */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <div className="bg-green-600 rounded p-1 mr-2">
+                            <MagnifyingGlassIcon className="h-3 w-3 text-white" />
+                          </div>
+                          <h3 className="text-sm font-semibold text-gray-900">SEO Information</h3>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">SEO Title</label>
                             <input
                               type="text"
                               value={formData.seoTitle}
                               onChange={(e) => setFormData({...formData, seoTitle: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                               placeholder="SEO optimized title"
+                              maxLength={60}
                             />
+                            <div className="text-xs text-gray-400 mt-0.5">{formData.seoTitle.length}/60</div>
                           </div>
 
-                          {/* SEO Description */}
                           <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">SEO Description</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">SEO Description</label>
                             <textarea
                               rows={2}
                               value={formData.seoDescription}
                               onChange={(e) => setFormData({...formData, seoDescription: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
+                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
                               placeholder="SEO meta description..."
                               maxLength={160}
                             />
-                            <div className="mt-1 text-xs text-gray-500 text-right">
-                              {formData.seoDescription.length}/160
-                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5">{formData.seoDescription.length}/160</div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Info Note */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      {/* Submission Note */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
                         <div className="flex items-start">
-                          <div className="flex-shrink-0">
-                            <CheckCircleIcon className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div className="ml-2.5">
+                          <CheckCircleIcon className="h-4 w-4 text-blue-600 mr-2 mt-0.5 shrink-0" />
+                          <div>
                             <h4 className="text-xs font-semibold text-blue-900">Approval Process</h4>
                             <p className="text-xs text-blue-700 mt-0.5">
-                              Your product will be submitted for approval by the admin. Once approved, you can select it and add inventory through "Select Product" to start selling.
+                              Your product will be submitted for approval. Once approved, you can select it and add inventory to start selling.
                             </p>
                           </div>
                         </div>
@@ -1616,9 +2339,17 @@ const ProductManagement = () => {
                     {modalMode === 'add' && (
                       <span className="inline-flex items-center gap-1.5">
                         <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-                          formData.name && formData.sku && formData.category && formData.price ? 'bg-green-500' : 'bg-yellow-500'
+                          formData.name && formData.sku && formData.category && formData.subcategory && formData.price && formData.brand && formData.unit && formData.weight && formData.weightUnit && formData.description ? 'bg-green-500' : 'bg-yellow-500'
                         }`}></span>
-                        <span className="font-medium text-xs">Essential: {formData.name && formData.sku && formData.category && formData.price ? '100%' : '0%'}</span>
+                        <span className="font-medium text-xs">Required: {
+                          formData.name && formData.sku && formData.category && formData.subcategory && formData.price && formData.brand && formData.unit && formData.weight && formData.weightUnit && formData.description ? '100%' : 
+                          Math.round(([formData.name, formData.sku, formData.category, formData.subcategory, formData.price, formData.brand, formData.unit, formData.weight, formData.weightUnit, formData.description].filter(Boolean).length / 10) * 100)
+                        }%</span>
+                        {gstInfo.applicable && (
+                          <span className="ml-2 text-blue-600">
+                            GST: {gstInfo.rate}% (₹{gstInfo.amount})
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>

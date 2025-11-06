@@ -73,9 +73,60 @@ export const getProduct = async (id) => {
 };
 
 export const addProduct = async (productData) => {
-  return apiRequest('/vendor/products', {
+  // For vendor submissions, use the vendor-submission endpoint
+  // Convert to FormData for image uploads and proper field formatting
+  const formData = new FormData();
+  
+  // Add basic fields
+  formData.append('name', productData.name);
+  formData.append('description', productData.description);
+  formData.append('shortDescription', productData.shortDescription || '');
+  formData.append('sku', productData.sku);
+  formData.append('barcode', productData.barcode || '');
+  formData.append('category', productData.category);
+  formData.append('subcategory', productData.subcategory);
+  formData.append('brand', productData.brand);
+  formData.append('unit', productData.unit);
+  
+  // Add tags as JSON string
+  formData.append('tags', JSON.stringify(productData.tags || []));
+  
+  // Add pricing information (masterPricing for vendor submissions)
+  formData.append('masterPricing', JSON.stringify({
+    basePrice: productData.pricing?.basePrice || 0,
+    minimumSellingPrice: productData.pricing?.basePrice || 0
+  }));
+  
+  // Add weight as JSON
+  formData.append('weight', JSON.stringify(productData.weight));
+  
+  // Add dimensions as JSON
+  formData.append('dimensions', JSON.stringify(productData.dimensions));
+  
+  // Add attributes as JSON
+  formData.append('attributes', JSON.stringify(productData.attributes));
+  
+  // Add SEO as JSON
+  formData.append('seo', JSON.stringify(productData.seo));
+  
+  // Add delivery settings as JSON
+  formData.append('delivery', JSON.stringify(productData.masterDelivery));
+  
+  // Add status
+  formData.append('status', 'pending_approval');
+  
+  // Add images if present
+  if (productData.images && productData.images.length > 0) {
+    productData.images.forEach((image, index) => {
+      if (image instanceof File) {
+        formData.append('images', image);
+      }
+    });
+  }
+
+  return apiRequest('/products/vendor-submission', {
     method: 'POST',
-    body: JSON.stringify(productData),
+    body: formData,
   });
 };
 
@@ -273,18 +324,17 @@ export const getEarnings = async () => {
 };
 
 // Analytics APIs
-export const getAnalytics = async (timeRange = '7d') => {
-  // Convert timeRange to days for API
-  const periodMap = {
-    '7d': 7,
-    '30d': 30,
-    '90d': 90,
-    '1y': 365
-  };
-  
-  const period = periodMap[timeRange] || 30;
-  
-  return apiRequest(`/vendor/analytics?period=${period}`);
+// Analytics APIs
+export const getAnalytics = async () => {
+  return apiRequest('/vendor/analytics');
+};
+
+// GST calculation API
+export const getGSTRate = async (categoryId, subcategoryId = null) => {
+  const endpoint = subcategoryId 
+    ? `/products/gst-rate/${categoryId}/${subcategoryId}`
+    : `/products/gst-rate/${categoryId}`;
+  return apiRequest(endpoint);
 };
 
 export const getSalesReport = async (params = {}) => {
@@ -492,6 +542,7 @@ export default {
   getPayoutDetails,
   getEarnings,
   getAnalytics,
+  getGSTRate,
   getSalesReport,
   getProductAnalytics,
   getVendorProfile,

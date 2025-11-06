@@ -253,6 +253,38 @@ export const formatDateTime = (dateString) => {
   });
 };
 
+// Get vendor submitted products (products submitted by vendor for approval)
+export const getVendorSubmittedProducts = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    // Add pagination
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    
+    // Add search
+    if (params.search) queryParams.append('search', params.search);
+    
+    // Add category filter
+    if (params.category && params.category !== 'all') {
+      queryParams.append('category', params.category);
+    }
+
+    const queryString = queryParams.toString();
+    const endpoint = `/products/vendor/my-submissions${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('getVendorSubmittedProducts - Making API call to:', endpoint);
+    
+    const response = await apiRequest(endpoint);
+    console.log('getVendorSubmittedProducts - API Response:', response);
+    
+    return response;
+  } catch (error) {
+    console.error('getVendorSubmittedProducts - Error:', error);
+    throw error;
+  }
+};
+
 export default {
   getMyVendorProducts,
   getProductsByVendor,
@@ -262,6 +294,7 @@ export default {
   deleteProduct,
   getAvailableProducts,
   selectProduct,
+  getVendorSubmittedProducts,
   formatCurrency,
   formatDate,
   formatDateTime,
