@@ -503,15 +503,16 @@ const OrderManagement = () => {
     return matchesSearch && matchesStatus && matchesPayment && matchesDate;
   });
 
+  // Calculate stats from filteredOrders to respect date filter (showing today's data when filter is set to today)
   const orderStats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    confirmed: orders.filter(o => o.status === 'confirmed').length,
-    processing: orders.filter(o => ['processing', 'packed', 'shipped', 'out_for_delivery'].includes(o.status)).length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
-    assigned: orders.filter(o => o.delivery?.deliveryBoy).length,
-    unassigned: orders.filter(o => !o.delivery?.deliveryBoy && !['delivered', 'cancelled', 'returned'].includes(o.status)).length,
-    // Calculate total revenue from filtered orders in the table
+    total: filteredOrders.length,
+    pending: filteredOrders.filter(o => o.status === 'pending').length,
+    confirmed: filteredOrders.filter(o => o.status === 'confirmed').length,
+    processing: filteredOrders.filter(o => ['processing', 'packed', 'shipped', 'out_for_delivery'].includes(o.status)).length,
+    delivered: filteredOrders.filter(o => o.status === 'delivered').length,
+    assigned: filteredOrders.filter(o => o.delivery?.deliveryBoy).length,
+    unassigned: filteredOrders.filter(o => !o.delivery?.deliveryBoy && !['delivered', 'cancelled', 'returned'].includes(o.status)).length,
+    // Calculate total revenue from filtered orders
     totalRevenue: filteredOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
   };
 

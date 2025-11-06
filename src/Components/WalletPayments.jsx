@@ -18,7 +18,7 @@ import { getEarnings, getPayouts, getPayoutAnalytics, getPayoutDetails, requestP
 
 const WalletPayments = () => {
   const [earningsData, setEarningsData] = useState(null);
-  const [payouts, setPayouts] = useState([]);
+  const [payouts, setPayouts] = useState([]); // Ensure it's always an array
   const [payoutAnalytics, setPayoutAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -30,13 +30,16 @@ const WalletPayments = () => {
   const [payoutAmount, setPayoutAmount] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     fetchAllData();
-  }, [currentPage, filterStatus, searchTerm]);
+  }, [currentPage, filterStatus, searchTerm, dateFilter, startDate, endDate]);
 
   const fetchAllData = async () => {
     try {
@@ -56,15 +59,25 @@ const WalletPayments = () => {
   const fetchEarnings = async () => {
     try {
       const data = await getEarnings();
-      setEarningsData(data);
+      console.log('Earnings data fetched:', data);
+      
+      // Map API response to component state structure
+      const mappedData = {
+        availableBalance: data?.data?.pending?.amount || 0,
+        pendingBalance: data?.data?.today?.potentialEarnings || 0,
+        totalEarnings: data?.data?.lifetime?.totalEarnings || 0,
+        thisMonthEarnings: data?.data?.thisMonth?.earnings || 0
+      };
+      
+      setEarningsData(mappedData);
     } catch (err) {
       console.error('Error fetching earnings:', err);
-      // Mock data
+      // Set empty/zero data when API fails
       setEarningsData({
-        availableBalance: 12450,
-        pendingBalance: 3200,
-        totalEarnings: 45600,
-        thisMonthEarnings: 8950
+        availableBalance: 0,
+        pendingBalance: 0,
+        totalEarnings: 0,
+        thisMonthEarnings: 0
       });
     }
   };
@@ -77,53 +90,79 @@ const WalletPayments = () => {
         status: filterStatus !== 'all' ? filterStatus : undefined,
         search: searchTerm || undefined
       };
+
+      // Add date filtering params
+      if (dateFilter && dateFilter !== 'all') {
+        params.period = dateFilter;
+      }
+      if (startDate && endDate) {
+        params.startDate = startDate;
+        params.endDate = endDate;
+      }
+
       const data = await getPayouts(params);
-      setPayouts(data.payouts || data);
-      setTotalPages(data.totalPages || 1);
+      console.log('Payouts data fetched:', data);
+      
+      // Extract payouts array from API response (data.data.payouts)
+      const payoutsData = data?.data?.payouts || [];
+      
+      // Map API response to match component structure
+      const mappedPayouts = payoutsData.map(payout => ({
+        _id: payout._id,
+        amount: payout.totalAmount || payout.summary?.vendorEarning || 0,
+        status: payout.payment?.status || payout.status || 'pending',
+        requestDate: payout.createdAt,
+        completedDate: payout.payment?.processedAt || payout.processedAt,
+        processedAt: payout.processedAt,
+        method: payout.payment?.method === 'bank_transfer' ? 'Bank Transfer' : 'Bank Transfer',
+        accountDetails: 'Account on file',
+        transactionId: payout.payment?.transactionId,
+        processedBy: payout.payment?.processedBy?.name,
+        orders: payout.orders || [],
+        summary: payout.summary,
+        period: payout.period,
+        totalOrders: payout.totalOrders,
+        notes: payout.notes
+      }));
+      
+      setPayouts(mappedPayouts);
+      setTotalPages(data?.data?.pagination?.pages || 1);
     } catch (err) {
       console.error('Error fetching payouts:', err);
-      // Mock data
-      setPayouts([
-        {
-          _id: 'PAYOUT-001',
-          amount: 8000,
-          status: 'completed',
-          requestDate: '2024-01-10T10:00:00Z',
-          completedDate: '2024-01-11T15:30:00Z',
-          method: 'Bank Transfer',
-          accountDetails: 'XXXX1234'
-        },
-        {
-          _id: 'PAYOUT-002',
-          amount: 5000,
-          status: 'pending',
-          requestDate: '2024-01-15T14:00:00Z',
-          method: 'Bank Transfer',
-          accountDetails: 'XXXX1234'
-        },
-        {
-          _id: 'PAYOUT-003',
-          amount: 3000,
-          status: 'processing',
-          requestDate: '2024-01-14T09:00:00Z',
-          method: 'Bank Transfer',
-          accountDetails: 'XXXX1234'
-        }
-      ]);
+      // Set empty array when API fails - no dummy data
+      setPayouts([]);
+      setTotalPages(1);
     }
   };
 
   const fetchPayoutAnalytics = async () => {
     try {
-      const data = await getPayoutAnalytics();
-      setPayoutAnalytics(data);
+      const data = await getPayouts(); // Using getPayouts as it includes summary
+      
+      // Map API summary to analytics structure (from data.data.summary)
+      const summary = data?.data?.summary;
+      const mappedAnalytics = {
+        totalPayouts: summary?.totalPayouts || 0,
+        totalPayoutAmount: summary?.totalEarnings || summary?.completedAmount || 0,
+        averagePayoutAmount: summary?.totalPayouts > 0 
+          ? (summary?.totalEarnings / summary?.totalPayouts) 
+          : 0,
+        pendingPayouts: summary?.pendingAmount || 0,
+        totalCommission: summary?.totalCommission || 0,
+        totalOrders: summary?.totalOrders || 0
+      };
+      
+      setPayoutAnalytics(mappedAnalytics);
     } catch (err) {
       console.error('Error fetching payout analytics:', err);
+      // Set empty/zero data when API fails
       setPayoutAnalytics({
-        totalPayouts: 15,
-        totalPayoutAmount: 125000,
-        averagePayoutAmount: 8333,
-        pendingPayouts: 2
+        totalPayouts: 0,
+        totalPayoutAmount: 0,
+        averagePayoutAmount: 0,
+        pendingPayouts: 0,
+        totalCommission: 0,
+        totalOrders: 0
       });
     }
   };
@@ -139,15 +178,63 @@ const WalletPayments = () => {
   const handleViewDetails = async (payoutId) => {
     try {
       setLoading(true);
-      const details = await getPayoutDetails(payoutId);
-      setSelectedPayout(details);
-      setShowDetailsModal(true);
+      const response = await getPayoutDetails(payoutId);
+      console.log('Payout details fetched:', response);
+      
+      // Extract payout from API response (data.payout structure)
+      const payoutData = response?.data?.payout || response?.payout;
+      
+      if (payoutData) {
+        // Map API response to match component structure
+        const mappedPayout = {
+          _id: payoutData._id,
+          amount: payoutData.summary?.vendorEarning || payoutData.totalAmount || 0,
+          status: payoutData.payment?.status || 'pending',
+          requestDate: payoutData.createdAt,
+          completedDate: payoutData.payment?.processedAt,
+          method: payoutData.payment?.method === 'bank_transfer' ? 'Bank Transfer' : 'Bank Transfer',
+          accountDetails: 'Account on file',
+          transactionId: payoutData.payment?.transactionId,
+          processedBy: payoutData.payment?.processedBy?.name,
+          // Map orders array - handle both structures (nested order object or direct fields)
+          orders: payoutData.orders?.map(o => ({
+            orderNumber: o.orderNumber || o.order?.orderNumber,
+            orderValue: o.orderValue || o.order?.pricing?.subtotal,
+            commission: o.commission,
+            vendorEarning: o.vendorEarning,
+            createdAt: o.createdAt || o.order?.createdAt,
+            orderId: o.orderId || o.order?._id
+          })) || [],
+          summary: payoutData.summary,
+          period: payoutData.period,
+          notes: payoutData.notes
+        };
+        
+        setSelectedPayout(mappedPayout);
+        setShowDetailsModal(true);
+      }
     } catch (err) {
+      console.error('Error fetching payout details:', err);
       setError('Failed to load payout details');
-      // Mock data
+      setTimeout(() => setError(null), 3000);
+      // Try to find in existing payouts as fallback
       const payout = payouts.find(p => p._id === payoutId);
-      setSelectedPayout(payout);
-      setShowDetailsModal(true);
+      if (payout) {
+        // Map the orders from the list view structure too
+        const mappedPayout = {
+          ...payout,
+          orders: payout.orders?.map(o => ({
+            orderNumber: o.orderNumber,
+            orderValue: o.orderValue,
+            commission: o.commission,
+            vendorEarning: o.vendorEarning,
+            createdAt: o.createdAt,
+            orderId: o.orderId
+          })) || []
+        };
+        setSelectedPayout(mappedPayout);
+        setShowDetailsModal(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -188,6 +275,9 @@ const WalletPayments = () => {
   };
 
   const getStatusBadge = (status) => {
+    // Default to 'pending' if status is undefined or null
+    const statusValue = status || 'pending';
+    
     const styles = {
       completed: 'bg-green-100 text-green-800',
       pending: 'bg-yellow-100 text-yellow-800',
@@ -205,9 +295,9 @@ const WalletPayments = () => {
     };
 
     return (
-      <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium ${styles[status] || styles.pending}`}>
-        {icons[status]}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium ${styles[statusValue] || styles.pending}`}>
+        {icons[statusValue] || icons.pending}
+        {statusValue.charAt(0).toUpperCase() + statusValue.slice(1)}
       </span>
     );
   };
@@ -230,7 +320,8 @@ const WalletPayments = () => {
     }).format(amount);
   };
 
-  const filteredPayouts = payouts.filter(payout => {
+  // Ensure payouts is an array before filtering
+  const filteredPayouts = (Array.isArray(payouts) ? payouts : []).filter(payout => {
     const matchesSearch = payout._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          payout.accountDetails?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || payout.status === filterStatus;
@@ -294,7 +385,7 @@ const WalletPayments = () => {
               <WalletIcon className="h-3.5 w-3.5 text-green-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-500 truncate">Available</p>
+              <p className="text-xs text-gray-500 truncate">Pending Payout</p>
               <p className="text-sm font-semibold text-gray-900 truncate">
                 ₹{(earningsData?.availableBalance || 0).toLocaleString('en-IN')}
               </p>
@@ -308,7 +399,7 @@ const WalletPayments = () => {
               <ClockIcon className="h-3.5 w-3.5 text-yellow-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-500 truncate">Pending</p>
+              <p className="text-xs text-gray-500 truncate">Today's Orders</p>
               <p className="text-sm font-semibold text-gray-900 truncate">
                 ₹{(earningsData?.pendingBalance || 0).toLocaleString('en-IN')}
               </p>
@@ -322,7 +413,7 @@ const WalletPayments = () => {
               <BanknotesIcon className="h-3.5 w-3.5 text-blue-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-500 truncate">Total</p>
+              <p className="text-xs text-gray-500 truncate">Total Earnings</p>
               <p className="text-sm font-semibold text-gray-900 truncate">
                 ₹{(earningsData?.totalEarnings || 0).toLocaleString('en-IN')}
               </p>
@@ -349,33 +440,73 @@ const WalletPayments = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         {/* Filters Row */}
         <div className="p-2 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-1.5">
-            <div className="relative flex-1">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by payout ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full rounded-md border-gray-300 pl-8 py-1.5 text-xs focus:border-blue-500 focus:ring-blue-500"
-              />
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col sm:flex-row gap-1.5">
+              <div className="relative border border-zinc-200 rounded-md flex-1">
+                <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by payout ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 pl-8 py-1.5 text-xs focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="block w-full sm:w-36 border border-zinc-200 rounded-md py-1.5 text-xs focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="completed">Completed</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="failed">Failed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <select
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  if (e.target.value !== 'custom') {
+                    setStartDate('');
+                    setEndDate('');
+                  }
+                }}
+                className="block w-full sm:w-36 border border-zinc-200 rounded-md py-1.5 text-xs focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
+                <option value="custom">Custom Range</option>
+              </select>
+              <button className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                <DocumentArrowDownIcon className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
             </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="block w-full sm:w-36 rounded-md border-gray-300 py-1.5 text-xs focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="completed">Completed</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="failed">Failed</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <button className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
-              <DocumentArrowDownIcon className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
+            
+            {/* Custom Date Range */}
+            {dateFilter === 'custom' && (
+              <div className="flex gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 py-1.5 text-xs focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Start Date"
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 py-1.5 text-xs focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="End Date"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -483,9 +614,9 @@ const WalletPayments = () => {
 
       {/* Payout Request Modal */}
       {showPayoutModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowPayoutModal(false)}></div>
+            <div className="fixed inset-0 transition-opacity" onClick={() => setShowPayoutModal(false)}></div>
             
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden  transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-4 pb-3 sm:p-5">
@@ -558,9 +689,9 @@ const WalletPayments = () => {
 
       {/* Payout Details Modal */}
       {showDetailsModal && selectedPayout && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/50  overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowDetailsModal(false)}></div>
+            <div className="fixed inset-0 transition-opacity" onClick={() => setShowDetailsModal(false)}></div>
             
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden  transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-4 pb-3 sm:p-5">
@@ -620,11 +751,113 @@ const WalletPayments = () => {
                     </div>
                   </div>
 
+                  {selectedPayout.transactionId && (
+                    <div className="border-t border-gray-200 pt-2.5">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <div className="text-xs text-gray-500">Transaction ID</div>
+                          <div className="text-xs font-mono text-gray-900 mt-0.5">
+                            {selectedPayout.transactionId}
+                          </div>
+                        </div>
+                        {selectedPayout.processedBy && (
+                          <div>
+                            <div className="text-xs text-gray-500">Processed By</div>
+                            <div className="text-sm text-gray-900 mt-0.5">
+                              {selectedPayout.processedBy}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPayout.period && (
+                    <div className="border-t border-gray-200 pt-2.5">
+                      <div className="text-xs text-gray-500 mb-1.5">Payout Period</div>
+                      <div className="text-xs text-gray-900">
+                        <span className="font-medium capitalize">{selectedPayout.period.type}</span>
+                        {' - '}
+                        {new Date(selectedPayout.period.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {' to '}
+                        {new Date(selectedPayout.period.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPayout.summary && (
+                    <div className="border-t border-gray-200 pt-2.5">
+                      <div className="text-xs text-gray-500 mb-1.5">Payout Summary</div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-500">Total Orders:</span>
+                          <span className="ml-1 font-medium text-gray-900">{selectedPayout.summary.totalOrders}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Order Value:</span>
+                          <span className="ml-1 font-medium text-gray-900">₹{selectedPayout.summary.totalOrderValue?.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Commission:</span>
+                          <span className="ml-1 font-medium text-red-600">-₹{selectedPayout.summary.totalCommission?.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Commission Rate:</span>
+                          <span className="ml-1 font-medium text-gray-900">{(selectedPayout.summary.commissionRate * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-gray-200">
+                          <span className="text-gray-500">Your Earnings:</span>
+                          <span className="ml-1 font-semibold text-green-600 text-sm">₹{selectedPayout.summary.vendorEarning?.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPayout.orders && selectedPayout.orders.length > 0 && (
+                    <div className="border-t border-gray-200 pt-2.5">
+                      <div className="text-xs text-gray-500 mb-1.5">Included Orders ({selectedPayout.orders.length})</div>
+                      <div className="max-h-48 overflow-y-auto space-y-1.5">
+                        {selectedPayout.orders.map((order, idx) => (
+                          <div key={idx} className="bg-gray-50 p-2 rounded text-xs border border-gray-200">
+                            <div className="flex justify-between items-start mb-1">
+                              <div>
+                                <span className="font-medium text-gray-900">{order.orderNumber}</span>
+                                {order.createdAt && (
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    {new Date(order.createdAt).toLocaleDateString('en-IN', { 
+                                      day: '2-digit', 
+                                      month: 'short', 
+                                      year: 'numeric' 
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="font-medium text-blue-600">₹{order.orderValue?.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>Commission: ₹{order.commission?.toFixed(2)}</span>
+                              <span className="text-green-600 font-medium">Earning: ₹{order.vendorEarning?.toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedPayout.accountDetails && (
                     <div className="border-t border-gray-200 pt-2.5">
                       <div className="text-xs text-gray-500">Account Details</div>
                       <div className="text-sm text-gray-900 mt-0.5">
                         {selectedPayout.accountDetails}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPayout.notes && (
+                    <div className="border-t border-gray-200 pt-2.5">
+                      <div className="text-xs text-gray-500">Notes</div>
+                      <div className="text-sm text-gray-900 mt-0.5">
+                        {selectedPayout.notes}
                       </div>
                     </div>
                   )}
