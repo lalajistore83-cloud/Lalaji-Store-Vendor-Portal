@@ -19,6 +19,102 @@ import { addProduct, updateProduct, deleteProduct, selectProduct, getAvailablePr
 import { getCategories, getSubcategories } from '../utils/category';
 import { auth } from '../utils/auth';
 
+// Custom Dropdown Component
+const CustomDropdown = ({ 
+  label, 
+  value, 
+  onChange, 
+  options, 
+  placeholder = "Select", 
+  required = false,
+  className = "",
+  disabled = false 
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredOptions = options.filter(option => 
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedOption = options.find(option => option.value === value);
+
+  const handleSelect = (option) => {
+    onChange(option.value);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  return (
+    <div className={`relative ${className}`}>
+      <label className="block text-xs font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      
+      <div className="relative">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setIsOpen(!isOpen)}
+          className="block w-full px-2 py-1.5 text-xs text-left rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+        >
+          <span className={selectedOption ? "text-gray-900" : "text-gray-500"}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+          <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+            <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </button>
+
+        {isOpen && !disabled && (
+          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden">
+            {options.length > 5 && (
+              <div className="p-2 border-b border-gray-200">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            )}
+            
+            <div className="max-h-48 overflow-y-auto">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleSelect(option)}
+                    className={`w-full px-3 py-2 text-xs text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none ${
+                      value === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-gray-500">No options found</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Backdrop to close dropdown */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
+
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
   const [submittedProducts, setSubmittedProducts] = useState([]); // New state for vendor-submitted products
@@ -63,7 +159,7 @@ const ProductManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price: '',
+    basePrice: '',
     category: '',
     subcategory: '',
     stock: '',
@@ -75,10 +171,10 @@ const ProductManagement = () => {
     weight: '',
     weightUnit: 'kg',
     dimensions: '',
-    // Advanced Pricing
-    costPrice: '',
-    suggestedMRP: '',
-    minSellingPrice: '',
+    // Pricing Information (matching Product schema)
+    discountPercentage: '',
+    discountAmount: '',
+    minimumSellingPrice: '',
     // Additional Details
     shortDescription: '',
     manufacturingDate: '',
@@ -130,6 +226,92 @@ const ProductManagement = () => {
     hsnCode: ''
   });
 
+  // Dropdown options
+  const unitOptions = [
+    { value: 'kg', label: 'Kilogram (kg)' },
+    { value: 'g', label: 'Gram (g)' },
+    { value: 'l', label: 'Liter (l)' },
+    { value: 'ml', label: 'Milliliter (ml)' },
+    { value: 'piece', label: 'Piece' },
+    { value: 'pack', label: 'Pack' },
+    { value: 'dozen', label: 'Dozen' },
+    { value: 'bundle', label: 'Bundle' },
+    { value: 'box', label: 'Box' },
+    { value: 'bottle', label: 'Bottle' },
+    { value: 'can', label: 'Can' },
+    { value: 'pouch', label: 'Pouch' }
+  ];
+
+  const weightUnitOptions = [
+    { value: 'kg', label: 'Kilogram (kg)' },
+    { value: 'g', label: 'Gram (g)' },
+    { value: 'l', label: 'Liter (l)' },
+    { value: 'ml', label: 'Milliliter (ml)' },
+    { value: 'piece', label: 'Piece' },
+    { value: 'pack', label: 'Pack' }
+  ];
+
+  const shelfLifeUnitOptions = [
+    { value: 'days', label: 'Days' },
+    { value: 'months', label: 'Months' },
+    { value: 'years', label: 'Years' }
+  ];
+
+  const storageTemperatureOptions = [
+    { value: 'room_temperature', label: 'Room Temperature' },
+    { value: 'refrigerated', label: 'Refrigerated' },
+    { value: 'frozen', label: 'Frozen' }
+  ];
+
+  const deliveryCategoryOptions = [
+    { value: 'standard', label: 'Standard' },
+    { value: 'express', label: 'Express' },
+    { value: 'cold_chain', label: 'Cold Chain' },
+    { value: 'fragile', label: 'Fragile' }
+  ];
+
+  const weightCategoryOptions = [
+    { value: 'light', label: 'Light' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'heavy', label: 'Heavy' }
+  ];
+
+  const dimensionUnitOptions = [
+    { value: 'cm', label: 'Centimeter (cm)' },
+    { value: 'mm', label: 'Millimeter (mm)' },
+    { value: 'inch', label: 'Inch' }
+  ];
+
+  const certificationOptions = [
+    { value: 'organic', label: 'Organic' },
+    { value: 'non_gmo', label: 'Non-GMO' },
+    { value: 'gluten_free', label: 'Gluten Free' },
+    { value: 'vegan', label: 'Vegan' },
+    { value: 'vegetarian', label: 'Vegetarian' },
+    { value: 'halal', label: 'Halal' },
+    { value: 'kosher', label: 'Kosher' },
+    { value: 'fair_trade', label: 'Fair Trade' }
+  ];
+
+  const specialHandlingOptions = [
+    { value: 'fragile', label: 'Fragile' },
+    { value: 'perishable', label: 'Perishable' },
+    { value: 'temperature_controlled', label: 'Temperature Controlled' },
+    { value: 'refrigerated', label: 'Refrigerated' },
+    { value: 'hazardous', label: 'Hazardous' }
+  ];
+
+  // Convert categories and subcategories to dropdown format
+  const categoryOptions = categories.map(cat => ({
+    value: cat._id || cat.id,
+    label: cat.name
+  }));
+
+  const subcategoryOptions = subcategories.map(subcat => ({
+    value: subcat._id || subcat.id,
+    label: subcat.name
+  }));
+
   // Function to calculate GST based on subcategory
   const calculateGST = async (basePrice, subcategoryId) => {
     if (!basePrice || !subcategoryId) {
@@ -144,12 +326,12 @@ const ProductManagement = () => {
     }
 
     try {
-      // Get GST rate from backend API
-      const response = await getGSTRate(formData.category, subcategoryId);
-      if (response?.success && response?.data) {
-        const gstConfig = response.data;
+      // Find the subcategory in the local subcategories array to get GST rate
+      const selectedSubcategory = subcategories.find(subcat => subcat._id === subcategoryId || subcat.id === subcategoryId);
+      
+      if (selectedSubcategory && selectedSubcategory.gst) {
         const price = parseFloat(basePrice);
-        const gstRate = gstConfig.gstRate || 18; // Default to 18% if not specified
+        const gstRate = selectedSubcategory.gst.rate || 18; // Default to 18% if not specified
         const gstAmount = (price * gstRate) / 100;
         const totalPrice = price + gstAmount;
 
@@ -157,11 +339,11 @@ const ProductManagement = () => {
           rate: gstRate,
           amount: Math.round(gstAmount * 100) / 100,
           totalPrice: Math.round(totalPrice * 100) / 100,
-          applicable: gstConfig.gstApplicable !== false,
-          hsnCode: gstConfig.hsnCode || ''
+          applicable: true,
+          hsnCode: ''
         });
       } else {
-        // Fallback to default values
+        // Fallback to default values if subcategory GST not found
         const price = parseFloat(basePrice);
         const gstRate = 18; // Default GST rate
         const gstAmount = (price * gstRate) / 100;
@@ -193,20 +375,20 @@ const ProductManagement = () => {
     }
   };
 
-  // Effect to recalculate GST when price or subcategory changes
+  // Effect to recalculate GST when basePrice or subcategory changes
   useEffect(() => {
-    if (formData.price && formData.subcategory) {
-      calculateGST(formData.price, formData.subcategory);
+    if (formData.basePrice && formData.subcategory) {
+      calculateGST(formData.basePrice, formData.subcategory);
     } else {
       setGstInfo({
         rate: 0,
         amount: 0,
-        totalPrice: parseFloat(formData.price) || 0,
+        totalPrice: parseFloat(formData.basePrice) || 0,
         applicable: false,
         hsnCode: ''
       });
     }
-  }, [formData.price, formData.subcategory, subcategories]);
+  }, [formData.basePrice, formData.subcategory, subcategories]);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -525,7 +707,16 @@ const ProductManagement = () => {
           
           // Pricing Information (masterPricing for backend)
           pricing: {
-            basePrice: parseFloat(formData.price) || 0
+            basePrice: parseFloat(formData.basePrice) || 0,
+            discount: {
+              percentage: parseFloat(formData.discountPercentage) || 0,
+              amount: parseFloat(formData.discountAmount) || 0
+            }
+          },
+          
+          // Master pricing
+          masterPricing: {
+            minimumSellingPrice: parseFloat(formData.minimumSellingPrice) || 0
           },
           
           // Units and Measurements
@@ -626,14 +817,17 @@ const ProductManagement = () => {
     setFormData({
       name: productData.name || '',
       description: productData.description || '',
-      price: (productData.pricing?.sellingPrice || '').toString(),
+      basePrice: (productData.pricing?.basePrice || '').toString(),
       category: vendorProduct.category?.name || productData.category?.name || vendorProduct.category || '',
       stock: vendorProduct.inventory?.stock || '',
       images: productData.images || [],
       status: vendorProduct.status || 'active',
       sku: productData.sku || '',
       weight: productData.weight?.value || '',
-      dimensions: productData.dimensions || ''
+      dimensions: productData.dimensions || '',
+      discountPercentage: (productData.pricing?.discount?.percentage || '').toString(),
+      discountAmount: (productData.pricing?.discount?.amount || '').toString(),
+      minimumSellingPrice: (productData.masterPricing?.minimumSellingPrice || '').toString()
     });
     setShowModal(true);
   };
@@ -642,7 +836,7 @@ const ProductManagement = () => {
     setFormData({
       name: '',
       description: '',
-      price: '',
+      basePrice: '',
       category: '',
       subcategory: '',
       stock: '',
@@ -654,10 +848,10 @@ const ProductManagement = () => {
       weight: '',
       weightUnit: 'kg',
       dimensions: '',
-      // Advanced Pricing
-      costPrice: '',
-      suggestedMRP: '',
-      minSellingPrice: '',
+      // Pricing Information (matching Product schema)
+      discountPercentage: '',
+      discountAmount: '',
+      minimumSellingPrice: '',
       // Additional Details
       shortDescription: '',
       manufacturingDate: '',
@@ -1632,29 +1826,14 @@ const ProductManagement = () => {
 
                           {/* Unit */}
                           <div className="col-span-1">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Unit <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              required
+                            <CustomDropdown
+                              label="Unit"
                               value={formData.unit}
-                              onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="">Select</option>
-                              <option value="kg">kg</option>
-                              <option value="g">g</option>
-                              <option value="l">l</option>
-                              <option value="ml">ml</option>
-                              <option value="piece">piece</option>
-                              <option value="pack">pack</option>
-                              <option value="dozen">dozen</option>
-                              <option value="bundle">bundle</option>
-                              <option value="box">box</option>
-                              <option value="bottle">bottle</option>
-                              <option value="can">can</option>
-                              <option value="pouch">pouch</option>
-                            </select>
+                              onChange={(value) => setFormData({...formData, unit: value})}
+                              options={unitOptions}
+                              placeholder="Select unit"
+                              required={true}
+                            />
                           </div>
 
                           {/* Weight Value */}
@@ -1676,37 +1855,24 @@ const ProductManagement = () => {
 
                           {/* Weight Unit */}
                           <div className="col-span-1">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Weight Unit <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              required
+                            <CustomDropdown
+                              label="Weight Unit"
                               value={formData.weightUnit}
-                              onChange={(e) => setFormData({...formData, weightUnit: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="kg">kg</option>
-                              <option value="g">g</option>
-                              <option value="l">l</option>
-                              <option value="ml">ml</option>
-                              <option value="piece">piece</option>
-                              <option value="pack">pack</option>
-                            </select>
+                              onChange={(value) => setFormData({...formData, weightUnit: value})}
+                              options={weightUnitOptions}
+                              required={true}
+                            />
                           </div>
 
                           {/* Category */}
                           <div className="col-span-2">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Category <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              required
+                            <CustomDropdown
+                              label="Category"
                               value={formData.category}
-                              onChange={(e) => {
-                                const selectedCategory = e.target.value;
-                                setFormData({...formData, category: selectedCategory, subcategory: ''});
-                                if (selectedCategory) {
-                                  const categoryObj = categories.find(cat => cat._id === selectedCategory || cat.id === selectedCategory);
+                              onChange={(value) => {
+                                setFormData({...formData, category: value, subcategory: ''});
+                                if (value) {
+                                  const categoryObj = categories.find(cat => cat._id === value || cat.id === value);
                                   if (categoryObj) {
                                     fetchSubcategories(categoryObj._id || categoryObj.id);
                                   }
@@ -1714,36 +1880,23 @@ const ProductManagement = () => {
                                   setSubcategories([]);
                                 }
                               }}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="">Select category</option>
-                              {categories.map(category => (
-                                <option key={category._id || category.id} value={category._id || category.id}>
-                                  {category.name}
-                                </option>
-                              ))}
-                            </select>
+                              options={categoryOptions}
+                              placeholder="Select category"
+                              required={true}
+                            />
                           </div>
 
                           {/* Subcategory */}
                           <div className="col-span-2">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Subcategory <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              required
+                            <CustomDropdown
+                              label="Subcategory"
                               value={formData.subcategory}
-                              onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              onChange={(value) => setFormData({...formData, subcategory: value})}
+                              options={subcategoryOptions}
+                              placeholder="Select subcategory"
+                              required={true}
                               disabled={!formData.category || subcategories.length === 0}
-                            >
-                              <option value="">Select subcategory</option>
-                              {subcategories.map(subcategory => (
-                                <option key={subcategory._id || subcategory.id} value={subcategory._id || subcategory.id}>
-                                  {subcategory.name}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </div>
 
                           {/* Base Price */}
@@ -1758,8 +1911,8 @@ const ProductManagement = () => {
                                 required
                                 min="0"
                                 step="0.01"
-                                value={formData.price}
-                                onChange={(e) => setFormData({...formData, price: e.target.value})}
+                                value={formData.basePrice}
+                                onChange={(e) => setFormData({...formData, basePrice: e.target.value})}
                                 className="block w-full pl-6 pr-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                 placeholder="0.00"
                               />
@@ -1800,15 +1953,15 @@ const ProductManagement = () => {
                                 className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                 placeholder="0"
                               />
-                              <select
-                                value={formData.shelfLifeUnit}
-                                onChange={(e) => setFormData({...formData, shelfLifeUnit: e.target.value})}
-                                className="block px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                              >
-                                <option value="days">Days</option>
-                                <option value="months">Months</option>
-                                <option value="years">Years</option>
-                              </select>
+                              <div className="w-20">
+                                <CustomDropdown
+                                  label=""
+                                  value={formData.shelfLifeUnit}
+                                  onChange={(value) => setFormData({...formData, shelfLifeUnit: value})}
+                                  options={shelfLifeUnitOptions}
+                                  className="mt-0"
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -1854,58 +2007,7 @@ const ProductManagement = () => {
                             />
                           </div>
                         </div>
-                      </div>
-
-                      {/* Pricing Details */}
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        <div className="flex items-center mb-2">
-                          <div className="bg-green-600 rounded p-1 mr-2">
-                            <TagIcon className="h-3 w-3 text-white" />
-                          </div>
-                          <h3 className="text-sm font-semibold text-gray-900">Pricing Details</h3>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Cost Price (₹)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={formData.costPrice}
-                              onChange={(e) => setFormData({...formData, costPrice: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                              placeholder="0.00"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Suggested MRP (₹)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={formData.suggestedMRP}
-                              onChange={(e) => setFormData({...formData, suggestedMRP: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                              placeholder="0.00"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Min Selling Price (₹)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={formData.minSellingPrice}
-                              onChange={(e) => setFormData({...formData, minSellingPrice: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      </div> 
 
                       {/* Product Attributes */}
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -1941,17 +2043,13 @@ const ProductManagement = () => {
 
                           {/* Storage Temperature */}
                           <div className="col-span-1">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Storage Temp</label>
-                            <select
+                            <CustomDropdown
+                              label="Storage Temp"
                               value={formData.storageTemp}
-                              onChange={(e) => setFormData({...formData, storageTemp: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="">Select</option>
-                              <option value="room_temperature">Room Temp</option>
-                              <option value="refrigerated">Refrigerated</option>
-                              <option value="frozen">Frozen</option>
-                            </select>
+                              onChange={(value) => setFormData({...formData, storageTemp: value})}
+                              options={storageTemperatureOptions}
+                              placeholder="Select temperature"
+                            />
                           </div>
 
                           {/* Perishable */}
@@ -1969,31 +2067,22 @@ const ProductManagement = () => {
 
                           {/* Delivery Category */}
                           <div className="col-span-1">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Delivery Type</label>
-                            <select
+                            <CustomDropdown
+                              label="Delivery Type"
                               value={formData.deliveryCategory}
-                              onChange={(e) => setFormData({...formData, deliveryCategory: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="standard">Standard</option>
-                              <option value="express">Express</option>
-                              <option value="cold_chain">Cold Chain</option>
-                              <option value="fragile">Fragile</option>
-                            </select>
+                              onChange={(value) => setFormData({...formData, deliveryCategory: value})}
+                              options={deliveryCategoryOptions}
+                            />
                           </div>
 
                           {/* Weight Category */}
                           <div className="col-span-1">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Weight Category</label>
-                            <select
+                            <CustomDropdown
+                              label="Weight Category"
                               value={formData.weightCategory}
-                              onChange={(e) => setFormData({...formData, weightCategory: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="light">Light</option>
-                              <option value="medium">Medium</option>
-                              <option value="heavy">Heavy</option>
-                            </select>
+                              onChange={(value) => setFormData({...formData, weightCategory: value})}
+                              options={weightCategoryOptions}
+                            />
                           </div>
 
                           {/* Storage Instructions - Full Width */}
@@ -2061,16 +2150,12 @@ const ProductManagement = () => {
                           </div>
 
                           <div className="col-span-1">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
-                            <select
+                            <CustomDropdown
+                              label="Unit"
                               value={formData.dimensionUnit}
-                              onChange={(e) => setFormData({...formData, dimensionUnit: e.target.value})}
-                              className="block w-full px-2 py-1.5 text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="cm">cm</option>
-                              <option value="mm">mm</option>
-                              <option value="inch">inch</option>
-                            </select>
+                              onChange={(value) => setFormData({...formData, dimensionUnit: value})}
+                              options={dimensionUnitOptions}
+                            />
                           </div>
 
                           {/* Origin */}
