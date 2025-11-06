@@ -15,7 +15,7 @@ import {
   TableCellsIcon,
   Squares2X2Icon
 } from '@heroicons/react/24/outline';
-import { addProduct, updateProduct, deleteProduct, getProductsByVendor, getVendorSubmittedProducts } from '../utils/product';
+import { addProduct, updateProduct, deleteProduct, getProductsByVendor, getVendorSubmittedProducts, getProduct } from '../utils/product';
 import { getCategories, getSubcategories } from '../utils/category';
 import { auth } from '../utils/auth';
 
@@ -131,6 +131,9 @@ const ProductManagement = () => {
   const [totalProducts, setTotalProducts] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'cards'
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
 
   // Status counts for cards
   const [statusCounts, setStatusCounts] = useState({
@@ -748,6 +751,57 @@ const ProductManagement = () => {
     setShowModal(true);
   };
 
+  const handleView = async (vendorProduct) => {
+    try {
+      setViewLoading(true);
+      setShowViewModal(true);
+
+      console.log('handleView - Full vendorProduct object:', JSON.stringify(vendorProduct, null, 2));
+      console.log('handleView - vendorProduct._id:', vendorProduct._id);
+      console.log('handleView - vendorProduct.id:', vendorProduct.id);
+      console.log('handleView - vendorProduct.product:', vendorProduct.product);
+      console.log('handleView - vendorProduct.productId:', vendorProduct.productId);
+
+      // Try multiple possible locations for the product ID
+      let productId = null;
+
+      // Check if product field exists and extract ID
+      if (vendorProduct.product) {
+        if (typeof vendorProduct.product === 'string') {
+          productId = vendorProduct.product;
+        } else if (vendorProduct.product._id) {
+          productId = vendorProduct.product._id;
+        }
+      }
+
+      // Fallback to other possible fields
+      if (!productId) {
+        productId = vendorProduct.productId || vendorProduct._id || vendorProduct.id;
+      }
+
+      console.log('handleView - Final productId:', productId);
+
+      if (!productId) {
+        throw new Error('Product ID not found in vendorProduct');
+      }
+
+      // Fetch detailed product information
+      const response = await getProduct(productId);
+
+      if (response?.success && response?.data) {
+        setViewingProduct(response.data);
+      } else {
+        console.error('Failed to fetch product details:', response);
+        setError('Failed to load product details');
+      }
+    } catch (err) {
+      console.error('Error viewing product:', err);
+      setError(err.message);
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -1264,7 +1318,11 @@ const ProductManagement = () => {
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-right text-xs font-medium">
                       <div className="flex justify-end space-x-1.5">
-                        <button className="text-gray-600 hover:text-gray-900">
+                        <button
+                          onClick={() => handleView(vendorProduct)}
+                          className="text-gray-600 hover:text-gray-900"
+                          title="View Details"
+                        >
                           <EyeIcon className="h-3.5 w-3.5" />
                         </button>
                         {isPendingVerification && (
@@ -1421,7 +1479,10 @@ const ProductManagement = () => {
 
                     {/* Action Buttons */}
                     <div className="flex justify-center pt-2 border-t border-gray-200 gap-2">
-                      <button className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
+                      <button
+                        onClick={() => handleView(vendorProduct)}
+                        className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
+                      >
                         <EyeIcon className="h-3 w-3 mr-1" />
                         View
                       </button>
@@ -2221,6 +2282,260 @@ const ProductManagement = () => {
                   </div>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Product Details Modal */}
+      {showViewModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 transition-opacity" onClick={() => setShowViewModal(false)}></div>
+
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 flex items-center justify-between flex-shrink-0">
+              <h2 className="text-lg font-semibold text-white">Product Details</h2>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-white hover:text-gray-200 transition-colors"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-1 p-6">
+                {viewLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : viewingProduct ? (
+                  <div className="grid grid-cols-3 gap-6">
+                    {/* LEFT COLUMN - Product Image & Basic Info */}
+                    <div className="space-y-4">
+                      {/* Product Image */}
+                      <div className="aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                        {viewingProduct.images && viewingProduct.images.length > 0 ? (
+                          <img
+                            src={viewingProduct.images[0]?.url || viewingProduct.images[0]}
+                            alt={viewingProduct.images[0]?.altText || viewingProduct.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <PhotoIcon className="h-16 w-16 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Basic Information */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">Basic Information</h3>
+                        <dl className="space-y-2">
+                          <div>
+                            <dt className="text-xs font-medium text-gray-500">Product Name</dt>
+                            <dd className="text-sm text-gray-900">{viewingProduct.name || 'N/A'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-gray-500">SKU</dt>
+                            <dd className="text-sm text-gray-900">{viewingProduct.sku || 'N/A'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-gray-500">Brand</dt>
+                            <dd className="text-sm text-gray-900">{viewingProduct.brand?.name || 'N/A'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-gray-500">Category</dt>
+                            <dd className="text-sm text-gray-900">{viewingProduct.category?.name || 'N/A'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-gray-500">Subcategory</dt>
+                            <dd className="text-sm text-gray-900">{viewingProduct.subcategory?.name || 'N/A'}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+
+                    {/* MIDDLE COLUMN - Pricing & Stock */}
+                    <div className="space-y-4">
+                      {/* Pricing & Stock */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">Pricing & Stock</h3>
+                        <dl className="space-y-2">
+                          <div className="flex justify-between">
+                            <dt className="text-xs text-gray-500">Base Price</dt>
+                            <dd className="text-sm font-medium text-gray-900">₹{viewingProduct.pricing?.basePrice || 'N/A'}</dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="text-xs text-gray-500">Selling Price</dt>
+                            <dd className="text-sm font-medium text-gray-900">₹{viewingProduct.pricing?.sellingPrice || 'N/A'}</dd>
+                          </div>
+                          {viewingProduct.pricingWithGST && (
+                            <div className="flex justify-between">
+                              <dt className="text-xs text-gray-500">Price with GST</dt>
+                              <dd className="text-sm font-medium text-green-600">
+                                ₹{viewingProduct.pricingWithGST.priceWithGST}
+                                <span className="text-xs text-gray-500 ml-1">(GST: {viewingProduct.pricingWithGST.gstRate}%)</span>
+                              </dd>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <dt className="text-xs text-gray-500">Total Stock</dt>
+                            <dd className="text-sm font-medium text-gray-900">{viewingProduct.inventory?.totalStock || 0}</dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="text-xs text-gray-500">Available Vendors</dt>
+                            <dd className="text-sm font-medium text-gray-900">{viewingProduct.inventory?.availableVendors || 0}</dd>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <dt className="text-xs text-gray-500">Stock Status</dt>
+                            <dd>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                viewingProduct.inventory?.stockStatus === 'in_stock' ? 'bg-green-100 text-green-800' :
+                                viewingProduct.inventory?.stockStatus === 'low_stock' ? 'bg-yellow-100 text-yellow-800' :
+                                viewingProduct.inventory?.stockStatus === 'out_of_stock' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {viewingProduct.inventory?.stockStatus?.replace('_', ' ').toUpperCase() || 'N/A'}
+                              </span>
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+
+                      {/* Product Details */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">Product Details</h3>
+                        <dl className="space-y-2">
+                          {viewingProduct.weight && (
+                            <div className="flex justify-between">
+                              <dt className="text-xs text-gray-500">Weight</dt>
+                              <dd className="text-sm text-gray-900">{viewingProduct.weight.value} {viewingProduct.weight.unit}</dd>
+                            </div>
+                          )}
+                          {viewingProduct.dimensions && (
+                            <div className="flex justify-between">
+                              <dt className="text-xs text-gray-500">Dimensions</dt>
+                              <dd className="text-sm text-gray-900">
+                                {typeof viewingProduct.dimensions === 'object'
+                                  ? `${viewingProduct.dimensions.length || 0} x ${viewingProduct.dimensions.width || 0} x ${viewingProduct.dimensions.height || 0} ${viewingProduct.dimensions.unit || 'cm'}`
+                                  : viewingProduct.dimensions}
+                              </dd>
+                            </div>
+                          )}
+                          {viewingProduct.barcode && (
+                            <div className="flex justify-between">
+                              <dt className="text-xs text-gray-500">Barcode</dt>
+                              <dd className="text-sm text-gray-900">{viewingProduct.barcode}</dd>
+                            </div>
+                          )}
+                          {viewingProduct.analytics && (
+                            <>
+                              <div className="flex justify-between">
+                                <dt className="text-xs text-gray-500">Total Views</dt>
+                                <dd className="text-sm text-gray-900">{viewingProduct.analytics.totalViews || 0}</dd>
+                              </div>
+                              <div className="flex justify-between">
+                                <dt className="text-xs text-gray-500">Total Orders</dt>
+                                <dd className="text-sm text-gray-900">{viewingProduct.analytics.totalOrders || 0}</dd>
+                              </div>
+                            </>
+                          )}
+                        </dl>
+                      </div>
+                    </div>
+
+                    {/* RIGHT COLUMN - Description & Vendors */}
+                    <div className="space-y-4">
+                      {/* Description */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">Description</h3>
+                        <p className="text-xs text-gray-700 leading-relaxed">{viewingProduct.description || 'No description available'}</p>
+                      </div>
+
+                      {/* Vendor Information */}
+                      {viewingProduct.inventory?.vendors && viewingProduct.inventory.vendors.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">Available from Vendors</h3>
+                          <div className="space-y-2">
+                            {viewingProduct.inventory.vendors.map((vendor, index) => (
+                              <div key={index} className="border border-gray-200 rounded p-3 bg-gray-50">
+                                <p className="text-sm font-medium text-gray-900">{vendor.businessName || vendor.vendorName}</p>
+                                <p className="text-xs text-gray-500">{vendor.phoneNumber}</p>
+                                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500">Stock:</span> <span className="font-medium">{vendor.stock}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Available:</span> <span className="font-medium">{vendor.availableStock}</span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-gray-500">Delivery:</span> <span className="font-medium">{vendor.deliveryModel || 'N/A'}</span>
+                                  </div>
+                                  {vendor.distance && (
+                                    <div className="col-span-2 text-blue-600">
+                                      {vendor.distance.toFixed(1)} km away • {vendor.estimatedDelivery}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Nutritional Info */}
+                      {viewingProduct.nutritionalInfo && Object.keys(viewingProduct.nutritionalInfo).length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">Nutritional Info (per 100g)</h3>
+                          <dl className="space-y-1.5">
+                            {viewingProduct.nutritionalInfo.calories && (
+                              <div className="flex justify-between">
+                                <dt className="text-xs text-gray-500">Calories</dt>
+                                <dd className="text-sm text-gray-900">{viewingProduct.nutritionalInfo.calories} kcal</dd>
+                              </div>
+                            )}
+                            {viewingProduct.nutritionalInfo.protein && (
+                              <div className="flex justify-between">
+                                <dt className="text-xs text-gray-500">Protein</dt>
+                                <dd className="text-sm text-gray-900">{viewingProduct.nutritionalInfo.protein}g</dd>
+                              </div>
+                            )}
+                            {viewingProduct.nutritionalInfo.carbohydrates && (
+                              <div className="flex justify-between">
+                                <dt className="text-xs text-gray-500">Carbohydrates</dt>
+                                <dd className="text-sm text-gray-900">{viewingProduct.nutritionalInfo.carbohydrates}g</dd>
+                              </div>
+                            )}
+                            {viewingProduct.nutritionalInfo.fat && (
+                              <div className="flex justify-between">
+                                <dt className="text-xs text-gray-500">Fat</dt>
+                                <dd className="text-sm text-gray-900">{viewingProduct.nutritionalInfo.fat}g</dd>
+                              </div>
+                            )}
+                          </dl>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No product details available</p>
+                  </div>
+                )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-3 flex justify-end border-t border-gray-200 flex-shrink-0">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

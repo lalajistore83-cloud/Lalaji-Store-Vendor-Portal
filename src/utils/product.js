@@ -99,9 +99,17 @@ export const getProductsByVendor = async (vendorId, params = {}) => {
   return response;
 };
 
-// Get single product by ID
-export const getProduct = async (id) => {
-  return apiRequest(`/vendor/products/${id}`);
+// Get single product by ID with detailed vendor inventory
+export const getProduct = async (id, userLocation = null) => {
+  let endpoint = `/products/${id}`;
+  if (userLocation) {
+    const locationParam = encodeURIComponent(JSON.stringify(userLocation));
+    endpoint += `?userLocation=${locationParam}`;
+  }
+  console.log('getProduct - Fetching from endpoint:', endpoint);
+  const response = await apiRequest(endpoint);
+  console.log('getProduct - API Response:', response);
+  return response;
 };
 
 // Add new product
