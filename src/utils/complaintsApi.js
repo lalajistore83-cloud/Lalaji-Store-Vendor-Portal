@@ -1,9 +1,11 @@
 // Complaints API functions
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Get authentication token
 const getAuthToken = () => {
-  return localStorage.getItem('vendor_token');
+  const token = localStorage.getItem('vendor_token') || localStorage.getItem('token');
+  console.log('Auth token:', token ? 'Found' : 'Not found');
+  return token;
 };
 
 // Get complaints for vendor (orders related to vendor)
@@ -21,6 +23,9 @@ export const getVendorComplaints = async (params = {}) => {
 
     const url = `${API_BASE_URL}/complaints/vendor${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     
+    console.log('Fetching complaints from:', url);
+    console.log('With auth token:', token ? 'Present' : 'Missing');
+    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -30,7 +35,9 @@ export const getVendorComplaints = async (params = {}) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch complaints: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`Failed to fetch complaints: ${response.statusText} - ${errorText}`);
     }
 
     return await response.json();
