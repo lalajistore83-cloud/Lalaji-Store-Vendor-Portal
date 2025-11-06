@@ -1347,7 +1347,7 @@ const ProductManagement = () => {
               const isPendingVerification = status === 'pending_approval' || vendorProduct.approvalStatus?.status === 'pending';
 
               return (
-                <div key={vendorProduct.id || vendorProduct._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden  transition-shadow">
+                <div key={vendorProduct.id || vendorProduct._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden  transition-">
                   {/* Product Image */}
                   <div className="relative h-32 bg-gray-100">
                     {vendorProduct.images && vendorProduct.images.length > 0 ? (

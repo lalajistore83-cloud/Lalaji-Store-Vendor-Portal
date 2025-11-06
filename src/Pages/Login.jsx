@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline';
 import { auth } from '../utils/auth';
 
@@ -190,6 +190,15 @@ const Login = () => {
               </div>
 
               <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Don't have an account?{' '}
+                  <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                    Register as a vendor
+                  </Link>
+                </p>
+              </div>
+
+              <div className="mt-3 text-center">
                 <p className="text-sm text-gray-600">
                   Having trouble accessing your account?{' '}
                   <a href="#" className="font-medium text-blue-600 hover:text-blue-500">

@@ -623,7 +623,7 @@ const SelectProducts = () => {
                 {paginatedProducts.map((product) => (
                   <div
                     key={product._id}
-                    className="bg-white border border-gray-200 rounded-lg -md transition-shadow duration-200"
+                    className="bg-white border border-gray-200 rounded-lg -md transition- duration-200"
                   >
                     {/* Product Image */}
                     <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-t-lg bg-gray-50">
@@ -918,7 +918,7 @@ const SelectProducts = () => {
                     </p>
                   </div>
                   <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <nav className="relative z-0 inline-flex rounded-md  -space-x-px" aria-label="Pagination">
                       <button
                         onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                         disabled={currentPage <= 1}
@@ -1054,7 +1054,7 @@ const SelectProducts = () => {
       {/* Remove Confirmation Modal */}
       {showRemoveModal && productToRemove && (
         <div className="fixed inset-0 bg-black/50 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-4 w-80 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-4 w-80 -lg rounded-md bg-white">
             <div className="mt-2">
               <h3 className="text-base font-medium text-gray-900 mb-3">
                 Remove Product from Inventory

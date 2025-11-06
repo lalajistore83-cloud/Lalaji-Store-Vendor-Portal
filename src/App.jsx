@@ -31,6 +31,7 @@ import {
 // Import pages and components
 import Dashboard from "./Pages/Dashboard";
 import Login from "./Pages/Login";
+import Register from "./Pages/Register";
 import ProductManagement from "./Components/ProductManagement";
 import SelectProducts from "./Components/SelectProducts";
 import OrderManagement from "./Components/OrderManagement";
@@ -476,6 +477,7 @@ function App() {
       <div className="App">
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route
             path="/dashboard"

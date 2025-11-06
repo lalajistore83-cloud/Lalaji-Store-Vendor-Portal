@@ -100,6 +100,34 @@ class AuthService {
     }
   }
 
+  // Vendor registration
+  async register(formData) {
+    try {
+      console.log('Register attempt');
+
+      const response = await fetch(`${API_BASE_URL}/auth/vendor-register-with-files`, {
+        method: 'POST',
+        body: formData, // FormData with files
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || error.message || 'Registration failed');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  }
+
   async logout() {
     try {
       if (this.token) {
