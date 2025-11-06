@@ -268,6 +268,13 @@ export const updateVendorProductStock = async (id, stockData) => {
   });
 };
 
+export const bulkUpdateVendorProductStock = async (updates) => {
+  return apiRequest('/vendor-products/bulk-update-stock', {
+    method: 'POST',
+    body: JSON.stringify({ updates }),
+  });
+};
+
 export const getVendorAnalytics = async () => {
   return apiRequest('/vendor-products/analytics');
 };

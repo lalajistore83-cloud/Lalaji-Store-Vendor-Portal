@@ -14,7 +14,7 @@ import {
   XMarkIcon,
   PhotoIcon
 } from '@heroicons/react/24/outline';
-import { getVendorProducts, updateVendorProductStock, createVendorProduct, getCategories } from '../utils/api';
+import { getVendorProducts, updateVendorProductStock, createVendorProduct, getCategories, bulkUpdateVendorProductStock } from '../utils/api';
 
 const InventoryManagement = () => {
   const [activeTab, setActiveTab] = useState('lalaji'); // 'lalaji' or 'own'
@@ -33,6 +33,11 @@ const InventoryManagement = () => {
   });
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState(new Set());
+  const [bulkOperation, setBulkOperation] = useState('add');
+  const [bulkQuantity, setBulkQuantity] = useState('');
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [addingProduct, setAddingProduct] = useState(false);
@@ -105,6 +110,68 @@ const InventoryManagement = () => {
   const removeImage = (index) => {
     const updatedImages = newProduct.images.filter((_, i) => i !== index);
     setNewProduct({ ...newProduct, images: updatedImages });
+  };
+
+  const toggleProductSelection = (productId) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProducts.size === filteredInventory.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(filteredInventory.map(item => item.vendorProductId)));
+    }
+  };
+
+  const handleBulkUpdate = async () => {
+    try {
+      setBulkUpdating(true);
+      setError(null);
+
+      if (selectedProducts.size === 0) {
+        setError('Please select at least one product');
+        return;
+      }
+
+      const quantity = parseInt(bulkQuantity);
+      if (!quantity || quantity <= 0) {
+        setError('Please enter a valid quantity');
+        return;
+      }
+
+      // Prepare updates array
+      const updates = Array.from(selectedProducts).map(vendorProductId => ({
+        vendorProductId,
+        operation: bulkOperation,
+        quantity
+      }));
+
+      const response = await bulkUpdateVendorProductStock(updates);
+
+      if (response.success) {
+        setSuccessMessage(
+          `Bulk update completed! ${response.data.successful.length} products updated successfully.`
+        );
+        setShowBulkUpdateModal(false);
+        setSelectedProducts(new Set());
+        setBulkQuantity('');
+        fetchInventory(true);
+      } else {
+        setError(response.message || 'Some updates failed');
+      }
+    } catch (err) {
+      console.error('Error bulk updating:', err);
+      setError(err.message || 'Failed to bulk update products');
+    } finally {
+      setBulkUpdating(false);
+    }
   };
 
   const handleAddProduct = async () => {
@@ -465,9 +532,13 @@ const InventoryManagement = () => {
           <button className="inline-flex items-center rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
             Export Report
           </button>
-          <button className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
+          <button 
+            onClick={() => setShowBulkUpdateModal(true)}
+            disabled={selectedProducts.size === 0}
+            className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <ArchiveBoxIcon className="h-3.5 w-3.5 mr-1.5" />
-            Bulk Update
+            Bulk Update {selectedProducts.size > 0 && `(${selectedProducts.size})`}
           </button>
         </div>
       </div>
@@ -729,6 +800,14 @@ const InventoryManagement = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-2 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.size === filteredInventory.length && filteredInventory.length > 0}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Product
                 </th>
@@ -758,7 +837,7 @@ const InventoryManagement = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredInventory.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan="9" className="px-4 py-8 text-center text-sm text-gray-500">
                     {searchTerm || filterCategory !== 'all' || filterStock !== 'all' 
                       ? 'No products match your filters' 
                       : 'No products in inventory. Add products to get started.'}
@@ -767,6 +846,14 @@ const InventoryManagement = () => {
               ) : (
                 filteredInventory.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(item.vendorProductId)}
+                        onChange={() => toggleProductSelection(item.vendorProductId)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center">
                         {item.image && (
@@ -1150,6 +1237,142 @@ const InventoryManagement = () => {
                   type="button"
                   onClick={() => setShowAddProductModal(false)}
                   disabled={addingProduct}
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Update Modal */}
+      {showBulkUpdateModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+              {/* Modal Header */}
+              <div className="bg-white px-4 pt-4 pb-2 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold leading-6 text-gray-900">
+                    Bulk Update Stock
+                  </h3>
+                  <button
+                    type="button"
+                    className="rounded-md bg-white text-gray-400 hover:text-gray-500"
+                    onClick={() => setShowBulkUpdateModal(false)}
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Update stock for {selectedProducts.size} selected product{selectedProducts.size !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {/* Modal Content */}
+              <div className="px-4 py-4">
+                <div className="space-y-4">
+                  {/* Operation Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Operation
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <button
+                        onClick={() => setBulkOperation('add')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${
+                          bulkOperation === 'add'
+                            ? 'bg-green-50 border-green-500 text-green-700'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <PlusIcon className="h-4 w-4 mx-auto mb-1" />
+                        Add Stock
+                      </button>
+                      <button
+                        onClick={() => setBulkOperation('subtract')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${
+                          bulkOperation === 'subtract'
+                            ? 'bg-red-50 border-red-500 text-red-700'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <MinusIcon className="h-4 w-4 mx-auto mb-1" />
+                        Remove Stock
+                      </button>
+                      <button
+                        onClick={() => setBulkOperation('set')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${
+                          bulkOperation === 'set'
+                            ? 'bg-blue-50 border-blue-500 text-blue-700'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <AdjustmentsHorizontalIcon className="h-4 w-4 mx-auto mb-1" />
+                        Set Stock
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quantity Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={bulkQuantity}
+                      onChange={(e) => setBulkQuantity(e.target.value)}
+                      placeholder="Enter quantity"
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {bulkOperation === 'add' && 'This quantity will be added to each selected product'}
+                      {bulkOperation === 'subtract' && 'This quantity will be removed from each selected product'}
+                      {bulkOperation === 'set' && 'Stock will be set to this quantity for each selected product'}
+                    </p>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <p className="text-sm text-blue-900 font-medium">Summary</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} will be updated
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-4 gap-2">
+                <button
+                  type="button"
+                  onClick={handleBulkUpdate}
+                  disabled={bulkUpdating || !bulkQuantity}
+                  className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bulkUpdating ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="h-4 w-4 mr-1" />
+                      Update Stock
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkUpdateModal(false)}
+                  disabled={bulkUpdating}
                   className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
                 >
                   Cancel
