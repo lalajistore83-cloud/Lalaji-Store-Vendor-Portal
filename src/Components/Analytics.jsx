@@ -11,21 +11,9 @@ import {
 } from '@heroicons/react/24/outline';
 import {
   LineChart,
-  Line,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
   BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
+  PieChart
+} from '@mui/x-charts';
 import { getAnalytics } from '../utils/api';
 
 const Analytics = () => {
@@ -42,63 +30,19 @@ const Analytics = () => {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const data = await getAnalytics(timeRange);
-      setAnalytics(data);
+      const response = await getAnalytics(timeRange);
+      console.log('Analytics response:', response);
+      
+      if (response.success && response.data) {
+        setAnalytics(response.data);
+        setError(null);
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (err) {
-      setError(err.message);
-      // Mock data for demonstration
-      setAnalytics({
-        overview: {
-          totalRevenue: 45600,
-          revenueChange: 12.5,
-          totalOrders: 156,
-          ordersChange: 8.3,
-          avgOrderValue: 292,
-          avgOrderChange: 4.2,
-          totalCustomers: 89,
-          customersChange: 15.7
-        },
-        revenue: [
-          { date: '2024-01-09', revenue: 5400, orders: 18, customers: 12 },
-          { date: '2024-01-10', revenue: 6200, orders: 22, customers: 15 },
-          { date: '2024-01-11', revenue: 4800, orders: 16, customers: 11 },
-          { date: '2024-01-12', revenue: 7100, orders: 25, customers: 18 },
-          { date: '2024-01-13', revenue: 6800, orders: 23, customers: 16 },
-          { date: '2024-01-14', revenue: 8200, orders: 28, customers: 20 },
-          { date: '2024-01-15', revenue: 7100, orders: 24, customers: 17 }
-        ],
-        topProducts: [
-          { name: 'Organic Apples', sales: 145, revenue: 17400, percentage: 25 },
-          { name: 'Fresh Milk', sales: 132, revenue: 7920, percentage: 20 },
-          { name: 'Whole Wheat Bread', sales: 98, revenue: 4410, percentage: 15 },
-          { name: 'Free Range Eggs', sales: 87, revenue: 6960, percentage: 12 },
-          { name: 'Organic Bananas', sales: 76, revenue: 6080, percentage: 10 }
-        ],
-        categoryRevenue: [
-          { name: 'Fruits & Vegetables', value: 18500, color: '#10B981' },
-          { name: 'Dairy Products', value: 12300, color: '#3B82F6' },
-          { name: 'Bakery', value: 8900, color: '#F59E0B' },
-          { name: 'Beverages', value: 5900, color: '#EF4444' }
-        ],
-        hourlyOrders: [
-          { hour: '6 AM', orders: 2 },
-          { hour: '7 AM', orders: 5 },
-          { hour: '8 AM', orders: 12 },
-          { hour: '9 AM', orders: 18 },
-          { hour: '10 AM', orders: 25 },
-          { hour: '11 AM', orders: 22 },
-          { hour: '12 PM', orders: 28 },
-          { hour: '1 PM', orders: 24 },
-          { hour: '2 PM', orders: 19 },
-          { hour: '3 PM', orders: 15 },
-          { hour: '4 PM', orders: 18 },
-          { hour: '5 PM', orders: 23 },
-          { hour: '6 PM', orders: 32 },
-          { hour: '7 PM', orders: 28 },
-          { hour: '8 PM', orders: 15 },
-          { hour: '9 PM', orders: 8 }
-        ]
-      });
+      console.error('Error fetching analytics:', err);
+      setError(err.message || 'Failed to load analytics data');
+      setAnalytics(null);
     } finally {
       setLoading(false);
     }
@@ -129,64 +73,76 @@ const Analytics = () => {
 
   if (error) {
     return (
-      <div className="rounded-md bg-red-50 p-4">
-        <div className="text-sm text-red-700">Error loading analytics: {error}</div>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-sm text-red-800">
+          Error loading analytics: {error}
+        </p>
+      </div>
+    );
+  }
+
+  if (!analytics || !analytics.overview) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <p className="text-sm text-yellow-800">
+          No analytics data available
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Track your business performance and insights
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 flex space-x-3">
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 3 months</option>
-            <option value="1y">Last year</option>
-          </select>
-          <button className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white  hover:bg-blue-500">
-            <CalendarDaysIcon className="h-4 w-4 mr-2" />
-            Export Report
-          </button>
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <div className="sm:flex sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Analytics Dashboard</h1>
+            <p className="text-sm text-gray-500 mt-1">Track your business performance</p>
+          </div>
+          <div className="mt-4 sm:mt-0 flex space-x-3">
+            <select 
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 3 months</option>
+              <option value="1y">Last year</option>
+            </select>
+            <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+              <CalendarDaysIcon className="h-4 w-4" />
+              <span>Export</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden  rounded-lg">
-          <div className="p-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+          <div className="p-3">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <CurrencyRupeeIcon className="h-6 w-6 text-green-600" />
+              <div className="shrink-0">
+                <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+                  <CurrencyRupeeIcon className="h-5 w-5 text-green-600" />
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                  <dt className="text-xs font-medium text-gray-500 truncate">Total Revenue</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-lg font-semibold text-gray-900">
                       {formatCurrency(analytics.overview.totalRevenue)}
                     </div>
-                    <div className={`ml-2 flex items-baseline text-sm font-semibold ${
+                    <div className={`ml-2 flex items-baseline text-xs font-semibold ${
                       analytics.overview.revenueChange >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {analytics.overview.revenueChange >= 0 ? (
-                        <ArrowUpIcon className="h-4 w-4 mr-1" />
+                        <ArrowUpIcon className="h-3 w-3 mr-1" />
                       ) : (
-                        <ArrowDownIcon className="h-4 w-4 mr-1" />
+                        <ArrowDownIcon className="h-3 w-3 mr-1" />
                       )}
                       {Math.abs(analytics.overview.revenueChange)}%
                     </div>
@@ -197,28 +153,28 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden  rounded-lg">
-          <div className="p-5">
+        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+          <div className="p-3">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <ShoppingCartIcon className="h-6 w-6 text-blue-600" />
+              <div className="shrink-0">
+                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <ShoppingCartIcon className="h-5 w-5 text-blue-600" />
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Orders</dt>
+                  <dt className="text-xs font-medium text-gray-500 truncate">Total Orders</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-lg font-semibold text-gray-900">
                       {analytics.overview.totalOrders}
                     </div>
-                    <div className={`ml-2 flex items-baseline text-sm font-semibold ${
+                    <div className={`ml-2 flex items-baseline text-xs font-semibold ${
                       analytics.overview.ordersChange >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {analytics.overview.ordersChange >= 0 ? (
-                        <ArrowUpIcon className="h-4 w-4 mr-1" />
+                        <ArrowUpIcon className="h-3 w-3 mr-1" />
                       ) : (
-                        <ArrowDownIcon className="h-4 w-4 mr-1" />
+                        <ArrowDownIcon className="h-3 w-3 mr-1" />
                       )}
                       {Math.abs(analytics.overview.ordersChange)}%
                     </div>
@@ -229,28 +185,28 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden  rounded-lg">
-          <div className="p-5">
+        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+          <div className="p-3">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <ChartBarIcon className="h-6 w-6 text-purple-600" />
+              <div className="shrink-0">
+                <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <ChartBarIcon className="h-5 w-5 text-purple-600" />
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Avg Order Value</dt>
+                  <dt className="text-xs font-medium text-gray-500 truncate">Avg Order Value</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-lg font-semibold text-gray-900">
                       {formatCurrency(analytics.overview.avgOrderValue)}
                     </div>
-                    <div className={`ml-2 flex items-baseline text-sm font-semibold ${
+                    <div className={`ml-2 flex items-baseline text-xs font-semibold ${
                       analytics.overview.avgOrderChange >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {analytics.overview.avgOrderChange >= 0 ? (
-                        <ArrowUpIcon className="h-4 w-4 mr-1" />
+                        <ArrowUpIcon className="h-3 w-3 mr-1" />
                       ) : (
-                        <ArrowDownIcon className="h-4 w-4 mr-1" />
+                        <ArrowDownIcon className="h-3 w-3 mr-1" />
                       )}
                       {Math.abs(analytics.overview.avgOrderChange)}%
                     </div>
@@ -261,28 +217,28 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden  rounded-lg">
-          <div className="p-5">
+        <div className="bg-white overflow-hidden rounded-lg border border-gray-200">
+          <div className="p-3">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <UsersIcon className="h-6 w-6 text-orange-600" />
+              <div className="shrink-0">
+                <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <UsersIcon className="h-5 w-5 text-orange-600" />
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Customers</dt>
+                  <dt className="text-xs font-medium text-gray-500 truncate">Total Customers</dt>
                   <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                    <div className="text-lg font-semibold text-gray-900">
                       {analytics.overview.totalCustomers}
                     </div>
-                    <div className={`ml-2 flex items-baseline text-sm font-semibold ${
+                    <div className={`ml-2 flex items-baseline text-xs font-semibold ${
                       analytics.overview.customersChange >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {analytics.overview.customersChange >= 0 ? (
-                        <ArrowUpIcon className="h-4 w-4 mr-1" />
+                        <ArrowUpIcon className="h-3 w-3 mr-1" />
                       ) : (
-                        <ArrowDownIcon className="h-4 w-4 mr-1" />
+                        <ArrowDownIcon className="h-3 w-3 mr-1" />
                       )}
                       {Math.abs(analytics.overview.customersChange)}%
                     </div>
@@ -295,87 +251,88 @@ const Analytics = () => {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Revenue Trend Chart */}
-        <div className="bg-white p-6 rounded-lg ">
+        <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">Revenue Trend</h3>
             <div className="flex space-x-2">
               <button
                 onClick={() => setActiveChart('revenue')}
-                className={`px-3 py-1 rounded-md text-sm ${
-                  activeChart === 'revenue' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                  activeChart === 'revenue' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 Revenue
               </button>
               <button
                 onClick={() => setActiveChart('orders')}
-                className={`px-3 py-1 rounded-md text-sm ${
-                  activeChart === 'orders' ? 'bg-blue-100 text-blue-700' : 'text-gray-500'
+                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                  activeChart === 'orders' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 Orders
               </button>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={analytics.revenue}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={formatDate}
-              />
-              <YAxis 
-                tickFormatter={activeChart === 'revenue' ? formatCurrency : undefined}
-              />
-              <Tooltip 
-                labelFormatter={formatDate}
-                formatter={[
-                  activeChart === 'revenue' ? formatCurrency : (value) => value,
-                  activeChart === 'revenue' ? 'Revenue' : 'Orders'
-                ]}
-              />
-              <Area 
-                type="monotone" 
-                dataKey={activeChart} 
-                stroke="#3B82F6" 
-                fill="#3B82F6" 
-                fillOpacity={0.1} 
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div className="w-full h-64">
+            <LineChart
+              dataset={analytics.revenue}
+              xAxis={[{
+                dataKey: 'date',
+                valueFormatter: (value) => formatDate(value),
+                scaleType: 'point'
+              }]}
+              yAxis={[{
+                valueFormatter: activeChart === 'revenue' ? 
+                  (value) => formatCurrency(value) : 
+                  (value) => value.toString()
+              }]}
+              series={[{
+                dataKey: activeChart,
+                color: '#3B82F6',
+                label: activeChart === 'revenue' ? 'Revenue' : 'Orders',
+                area: true
+              }]}
+              width={undefined}
+              height={256}
+            />
+          </div>
         </div>
 
         {/* Category Revenue Pie Chart */}
-        <div className="bg-white p-6 rounded-lg ">
+        <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Revenue by Category</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={analytics.categoryRevenue}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {analytics.categoryRevenue.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={[formatCurrency, 'Revenue']} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="w-full h-64">
+            <PieChart
+              series={[{
+                data: analytics.categoryRevenue.map((item, index) => ({
+                  id: index,
+                  value: item.value,
+                  label: item.name,
+                  color: item.color
+                })),
+                innerRadius: 40,
+                outerRadius: 80,
+                paddingAngle: 2,
+                cornerRadius: 5,
+                highlightScope: { faded: 'global', highlighted: 'item' }
+              }]}
+              width={undefined}
+              height={256}
+            />
+          </div>
         </div>
       </div>
 
       {/* Additional Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Top Products Table */}
-        <div className="bg-white  rounded-lg">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Top Selling Products</h3>
           </div>
@@ -383,21 +340,23 @@ const Analytics = () => {
             {analytics.topProducts.map((product, index) => (
               <div key={product.name} className="px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 h-8 w-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
                     <span className="text-sm font-medium text-gray-600">{index + 1}</span>
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                    <p className="text-sm text-gray-500">{product.sales} units sold</p>
+                    <p className="text-xs text-gray-500">{product.sales} units</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{formatCurrency(product.revenue)}</p>
-                  <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
-                    <div
-                      className="bg-blue-500 h-2 rounded-full"
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatCurrency(product.revenue)}
+                  </p>
+                  <div className="w-16 h-2 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-600 rounded-full"
                       style={{ width: `${product.percentage}%` }}
-                    ></div>
+                    />
                   </div>
                 </div>
               </div>
@@ -406,39 +365,49 @@ const Analytics = () => {
         </div>
 
         {/* Hourly Orders Chart */}
-        <div className="bg-white p-6 rounded-lg ">
+        <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Orders by Hour</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={analytics.hourlyOrders}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="orders" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="w-full h-64">
+            <BarChart
+              dataset={analytics.hourlyOrders}
+              xAxis={[{
+                dataKey: 'hour',
+                scaleType: 'band'
+              }]}
+              yAxis={[{
+                valueFormatter: (value) => value.toString()
+              }]}
+              series={[{
+                dataKey: 'orders',
+                color: '#3B82F6',
+                label: 'Orders'
+              }]}
+              width={undefined}
+              height={256}
+            />
+          </div>
         </div>
       </div>
 
       {/* Key Insights */}
-      <div className="bg-white  rounded-lg p-6">
+      <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Key Insights</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="border-l-4 border-green-500 pl-4">
             <h4 className="text-sm font-medium text-gray-900">Best Performance</h4>
-            <p className="text-sm text-gray-600 mt-1">
-              Peak orders between 6-7 PM. Consider promoting products during these hours.
+            <p className="text-xs text-gray-500 mt-1">
+              Peak orders between 6-7 PM. Consider promoting during these hours.
             </p>
           </div>
           <div className="border-l-4 border-yellow-500 pl-4">
             <h4 className="text-sm font-medium text-gray-900">Opportunity</h4>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               Morning hours (6-9 AM) show potential for breakfast category growth.
             </p>
           </div>
           <div className="border-l-4 border-blue-500 pl-4">
             <h4 className="text-sm font-medium text-gray-900">Trending</h4>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               Organic products showing 25% higher conversion rates this week.
             </p>
           </div>

@@ -274,7 +274,17 @@ export const getEarnings = async () => {
 
 // Analytics APIs
 export const getAnalytics = async (timeRange = '7d') => {
-  return apiRequest(`/vendor/analytics?range=${timeRange}`);
+  // Convert timeRange to days for API
+  const periodMap = {
+    '7d': 7,
+    '30d': 30,
+    '90d': 90,
+    '1y': 365
+  };
+  
+  const period = periodMap[timeRange] || 30;
+  
+  return apiRequest(`/vendor/analytics?period=${period}`);
 };
 
 export const getSalesReport = async (params = {}) => {

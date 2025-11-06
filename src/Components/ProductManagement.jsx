@@ -1198,7 +1198,7 @@ const ProductManagement = () => {
                                   setSubcategories([]);
                                 }
                               }}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                             >
                               <option value="">Select category</option>
                               {categories.map(category => (
@@ -1217,7 +1217,7 @@ const ProductManagement = () => {
                             <select
                               value={formData.subcategory}
                               onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                               disabled={!formData.category || subcategories.length === 0}
                             >
                               <option value="">Select subcategory</option>
@@ -1269,7 +1269,7 @@ const ProductManagement = () => {
                             <select
                               value={formData.weightUnit}
                               onChange={(e) => setFormData({...formData, weightUnit: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                             >
                               <option value="kg">Kilogram (kg)</option>
                               <option value="g">Gram (g)</option>
