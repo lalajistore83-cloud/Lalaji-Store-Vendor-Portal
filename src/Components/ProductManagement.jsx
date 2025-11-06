@@ -15,8 +15,9 @@ import {
   TableCellsIcon,
   Squares2X2Icon
 } from '@heroicons/react/24/outline';
-import { getVendorProducts, getMyVendorProducts, addProduct, updateProduct, deleteProduct, selectProduct, getAvailableProducts } from '../utils/product';
+import { addProduct, updateProduct, deleteProduct, selectProduct, getAvailableProducts, getProductsByVendor } from '../utils/product';
 import { getCategories, getSubcategories } from '../utils/category';
+import { auth } from '../utils/auth';
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
@@ -170,23 +171,25 @@ const ProductManagement = () => {
 
   const fetchStatusCounts = async () => {
     try {
-      // Fetch counts for each status separately
-      const [allResponse, activeResponse, inactiveResponse, outOfStockResponse] = await Promise.all([
-        getVendorProducts({ limit: 1, status: 'all' }),
-        getVendorProducts({ limit: 1, status: 'active' }),
-        getVendorProducts({ limit: 1, status: 'inactive' }),
-        getVendorProducts({ limit: 1, status: 'out_of_stock' })
-      ]);
+      // Get vendor ID from auth
+      const user = auth.getUser();
+      if (!user?._id) {
+        console.error('fetchStatusCounts - No vendor ID found in user');
+        return;
+      }
+
+      // Fetch all products to calculate counts
+      const allResponse = await getProductsByVendor(user._id, { limit: 1 });
 
       // Calculate total value by fetching all products (or use a summary endpoint if available)
-      const allProductsResponse = await getVendorProducts({ limit: 1000, status: 'all' });
-      const totalValue = allProductsResponse?.data?.reduce((sum, p) => sum + (p.pricing?.sellingPrice || 0), 0) || 0;
+      const allProductsResponse = await getProductsByVendor(user._id, { limit: 1000 });
+      const totalValue = allProductsResponse?.data?.reduce((sum, vp) => sum + (vp.product?.pricing?.sellingPrice || 0), 0) || 0;
 
       setStatusCounts({
         total: allResponse?.total || 0,
-        active: activeResponse?.total || 0,
-        inactive: inactiveResponse?.total || 0,
-        out_of_stock: outOfStockResponse?.total || 0,
+        active: allResponse?.total || 0,
+        inactive: 0,
+        out_of_stock: 0,
         totalValue: totalValue
       });
     } catch (err) {
@@ -199,17 +202,28 @@ const ProductManagement = () => {
       setLoading(true);
       setError(null);
 
+      // Get vendor ID from auth
+      const user = auth.getUser();
+      if (!user?._id) {
+        console.error('fetchProducts - No vendor ID found in user');
+        setError('Vendor ID not found');
+        setProducts([]);
+        setTotalProducts(0);
+        setTotalPages(1);
+        setLoading(false);
+        return;
+      }
+
       // Build query parameters for API
       const params = {
         page: currentPage,
         limit: itemsPerPage,
         search: searchTerm,
-        status: filterStatus,
         category: filterCategory
       };
 
-      console.log('fetchProducts - Calling getVendorProducts with params:', params);
-      const response = await getVendorProducts(params);
+      console.log('fetchProducts - Calling getProductsByVendor with vendorId:', user._id, 'params:', params);
+      const response = await getProductsByVendor(user._id, params);
       console.log('fetchProducts - API Response:', response);
 
       // Handle API response structure: { success, count, total, pagination: { page, pages }, data: [...] }
@@ -324,22 +338,23 @@ const ProductManagement = () => {
     }
   };
 
-  const handleEdit = (product) => {
+  const handleEdit = (vendorProduct) => {
     setModalMode('edit');
-    setEditingProduct(product);
+    setEditingProduct(vendorProduct);
 
-    // Extract product data from Product model structure
+    // Extract product data from VendorProduct model structure
+    const productData = vendorProduct.product || {};
     setFormData({
-      name: product.name || '',
-      description: product.description || '',
-      price: (product.pricing?.sellingPrice || '').toString(),
-      category: product.category?.name || product.category || '',
-      stock: '', // Product model doesn't have stock
-      images: product.images || [],
-      status: product.status || 'pending_approval',
-      sku: product.sku || '',
-      weight: product.weight?.value || '',
-      dimensions: product.dimensions || ''
+      name: productData.name || '',
+      description: productData.description || '',
+      price: (productData.pricing?.sellingPrice || '').toString(),
+      category: vendorProduct.category?.name || productData.category?.name || vendorProduct.category || '',
+      stock: vendorProduct.inventory?.stock || '',
+      images: productData.images || [],
+      status: vendorProduct.status || 'active',
+      sku: productData.sku || '',
+      weight: productData.weight?.value || '',
+      dimensions: productData.dimensions || ''
     });
     setShowModal(true);
   };
@@ -673,21 +688,23 @@ const ProductManagement = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentProducts.map((product) => {
-                  // Product model structure from /vendor/products endpoint
-                  const price = product.pricing?.sellingPrice || 0;
-                  const approvalStatus = product.approvalStatus?.status || 'pending';
+                {currentProducts.map((vendorProduct) => {
+                  // VendorProduct model structure from /vendor-products/vendor/:vendorId endpoint
+                  const productData = vendorProduct.product || {};
+                  const price = productData.pricing?.sellingPrice || 0;
+                  const stock = vendorProduct.inventory?.stock || 0;
+                  const status = vendorProduct.status || 'active';
 
                   return (
-                  <tr key={product._id || product.id} className="hover:bg-gray-50">
+                  <tr key={vendorProduct._id || vendorProduct.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-8 w-8">
-                          {product.images && product.images.length > 0 ? (
+                          {productData.images && productData.images.length > 0 ? (
                             <img
                               className="h-8 w-8 rounded-md object-cover"
-                              src={product.images[0]?.url || product.images[0]}
-                              alt={product.images[0]?.altText || product.name}
+                              src={productData.images[0]?.url || productData.images[0]}
+                              alt={productData.images[0]?.altText || productData.name}
                             />
                           ) : (
                             <div className="h-8 w-8 rounded-md bg-gray-100 flex items-center justify-center">
@@ -696,8 +713,8 @@ const ProductManagement = () => {
                           )}
                         </div>
                         <div className="ml-2">
-                          <div className="text-xs font-medium text-gray-900">{product.name || 'N/A'}</div>
-                          <div className="text-xs text-gray-500">{product.sku || 'N/A'}</div>
+                          <div className="text-xs font-medium text-gray-900">{productData.name || 'N/A'}</div>
+                          <div className="text-xs text-gray-500">{productData.sku || 'N/A'}</div>
                         </div>
                       </div>
                     </td>
@@ -705,7 +722,7 @@ const ProductManagement = () => {
                       <div className="flex items-center">
                         <TagIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
                         <span className="text-xs text-gray-900">
-                          {product.category?.name || product.category || 'N/A'}
+                          {vendorProduct.category?.name || productData.category?.name || 'N/A'}
                         </span>
                       </div>
                     </td>
@@ -715,25 +732,23 @@ const ProductManagement = () => {
                     <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center">
                         <CubeIcon className="h-3.5 w-3.5 text-gray-400 mr-1" />
-                        <span className="text-xs text-gray-500">N/A</span>
+                        <span className="text-xs text-gray-500">{stock}</span>
                       </div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {getStatusBadge(product.status)}
+                      {getStatusBadge(status)}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                        approvalStatus === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
+                        vendorProduct.isAvailable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {approvalStatus}
+                        {vendorProduct.isAvailable ? 'Available' : 'Unavailable'}
                       </span>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-right text-xs font-medium">
                       <div className="flex justify-end space-x-1.5">
                         <button
-                          onClick={() => handleEdit(product)}
+                          onClick={() => handleEdit(vendorProduct)}
                           className="text-blue-600 hover:text-blue-900"
                         >
                           <PencilIcon className="h-3.5 w-3.5" />
@@ -742,7 +757,7 @@ const ProductManagement = () => {
                           <EyeIcon className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDelete(product._id || product.id)}
+                          onClick={() => handleDelete(vendorProduct._id || vendorProduct.id)}
                           className="text-red-600 hover:text-red-900"
                         >
                           <TrashIcon className="h-3.5 w-3.5" />
@@ -812,20 +827,22 @@ const ProductManagement = () => {
         /* Card View - Grid - Super Compact */
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {currentProducts.map((product) => {
-              // Product model structure from /vendor/products endpoint
-              const price = product.pricing?.sellingPrice || 0;
-              const approvalStatus = product.approvalStatus?.status || 'pending';
+            {currentProducts.map((vendorProduct) => {
+              // VendorProduct model structure from /vendor-products/vendor/:vendorId endpoint
+              const productData = vendorProduct.product || {};
+              const price = productData.pricing?.sellingPrice || 0;
+              const stock = vendorProduct.inventory?.stock || 0;
+              const status = vendorProduct.status || 'active';
 
               return (
-                <div key={product._id || product.id} className="bg-white  rounded-lg overflow-hidden hover:shadow transition-shadow">
+                <div key={vendorProduct._id || vendorProduct.id} className="bg-white  rounded-lg overflow-hidden hover:shadow transition-shadow">
                   {/* Product Image */}
                   <div className="relative h-32 bg-gray-100">
-                    {product.images && product.images.length > 0 ? (
+                    {productData.images && productData.images.length > 0 ? (
                       <img
                         className="w-full h-full object-cover"
-                        src={product.images[0]?.url || product.images[0]}
-                        alt={product.images[0]?.altText || product.name}
+                        src={productData.images[0]?.url || productData.images[0]}
+                        alt={productData.images[0]?.altText || productData.name}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -834,22 +851,22 @@ const ProductManagement = () => {
                     )}
                     {/* Status Badge */}
                     <div className="absolute top-2 right-2">
-                      {getStatusBadge(product.status)}
+                      {getStatusBadge(status)}
                     </div>
                   </div>
 
                   {/* Product Details */}
                   <div className="p-2.5">
                     <div className="mb-2">
-                      <h3 className="text-xs font-semibold text-gray-900 mb-0.5 truncate">{product.name || 'N/A'}</h3>
-                      <p className="text-xs text-gray-500">{product.sku || 'N/A'}</p>
+                      <h3 className="text-xs font-semibold text-gray-900 mb-0.5 truncate">{productData.name || 'N/A'}</h3>
+                      <p className="text-xs text-gray-500">{productData.sku || 'N/A'}</p>
                     </div>
 
                     <div className="space-y-1.5 mb-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="flex items-center text-gray-600">
                           <TagIcon className="h-3 w-3 mr-1" />
-                          {product.category?.name || product.category || 'N/A'}
+                          {vendorProduct.category?.name || productData.category?.name || 'N/A'}
                         </span>
                         <span className="text-sm font-bold text-gray-900">₹{price}</span>
                       </div>
@@ -859,17 +876,15 @@ const ProductManagement = () => {
                           <CubeIcon className="h-3 w-3 mr-1" />
                           Stock:
                         </span>
-                        <span className="text-xs text-gray-500">N/A</span>
+                        <span className="text-xs text-gray-500">{stock}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">Approval:</span>
+                        <span className="text-gray-600">Available:</span>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                          approvalStatus === 'rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
+                          vendorProduct.isAvailable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {approvalStatus}
+                          {vendorProduct.isAvailable ? 'Yes' : 'No'}
                         </span>
                       </div>
                     </div>
@@ -877,7 +892,7 @@ const ProductManagement = () => {
                     {/* Action Buttons */}
                     <div className="flex space-x-1.5 pt-2 border-t border-gray-200">
                       <button
-                        onClick={() => handleEdit(product)}
+                        onClick={() => handleEdit(vendorProduct)}
                         className="flex-1 inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
                       >
                         <PencilIcon className="h-3 w-3 mr-1" />
@@ -889,7 +904,7 @@ const ProductManagement = () => {
                         <EyeIcon className="h-3 w-3" />
                       </button>
                       <button
-                        onClick={() => handleDelete(product._id || product.id)}
+                        onClick={() => handleDelete(vendorProduct._id || vendorProduct.id)}
                         className="inline-flex items-center justify-center px-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-red-600 bg-white hover:bg-red-50"
                       >
                         <TrashIcon className="h-3 w-3" />
@@ -1294,20 +1309,6 @@ const ProductManagement = () => {
                               className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
                               placeholder="L x W x H"
                             />
-                          </div>
-
-                          {/* Status */}
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1.5">Status</label>
-                            <select
-                              value={formData.status}
-                              onChange={(e) => setFormData({...formData, status: e.target.value})}
-                              className="block w-full px-3 py-2 rounded-md border border-gray-300  focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                            >
-                              <option value="active">Active</option>
-                              <option value="inactive">Inactive</option>
-                              <option value="pending_approval">Pending Approval</option>
-                            </select>
                           </div>
 
                           {/* Product Images */}
