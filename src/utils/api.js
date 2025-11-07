@@ -304,6 +304,30 @@ export const getStockMovements = async (params = {}) => {
   return apiRequest(`/vendor/inventory/movements${queryString ? `?${queryString}` : ''}`);
 };
 
+// Billing Management APIs
+export const createBill = async (billData) => {
+  return apiRequest('/billing/create', {
+    method: 'POST',
+    body: JSON.stringify(billData),
+  });
+};
+
+export const getBills = async (filters = {}) => {
+  const queryParams = new URLSearchParams(filters).toString();
+  return apiRequest(`/billing/my-bills${queryParams ? `?${queryParams}` : ''}`);
+};
+
+export const getBillById = async (billId) => {
+  return apiRequest(`/billing/${billId}`);
+};
+
+export const updateBillStatus = async (billId, status) => {
+  return apiRequest(`/billing/${billId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+};
+
 // Wallet & Payment APIs
 export const getWalletData = async () => {
   return apiRequest('/vendor/wallet');
@@ -576,4 +600,9 @@ export default {
   formatDate,
   formatDateTime,
   handleApiError,
+  // Billing APIs
+  createBill,
+  getBills,
+  getBillById,
+  updateBillStatus,
 };

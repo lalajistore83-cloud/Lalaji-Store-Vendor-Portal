@@ -2292,7 +2292,7 @@ const ProductManagement = () => {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 transition-opacity" onClick={() => setShowViewModal(false)}></div>
 
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
+          <div className="relative bg-white rounded-lg  w-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 flex items-center justify-between flex-shrink-0">
               <h2 className="text-lg font-semibold text-white">Product Details</h2>

@@ -657,7 +657,7 @@ const Register = () => {
                 </button>
               </div>
               
-              <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+              <div className="border border-gray-300 rounded-lg overflow-hidden ">
                 <div className="h-80 w-full relative">
                   <MapContainer
                     center={mapPosition}

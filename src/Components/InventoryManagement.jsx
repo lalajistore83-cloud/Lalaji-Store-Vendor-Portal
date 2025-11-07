@@ -990,7 +990,7 @@ const InventoryManagement = () => {
       {showAddProductModal && (
         <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left  transition-all sm:my-8 sm:w-full sm:max-w-2xl">
               {/* Modal Header */}
               <div className="bg-white px-4 pt-4 pb-2 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1226,7 +1226,7 @@ const InventoryManagement = () => {
                   type="button"
                   onClick={handleAddProduct}
                   disabled={addingProduct}
-                  className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white  hover:bg-green-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {addingProduct ? (
                     <>
@@ -1247,7 +1247,7 @@ const InventoryManagement = () => {
                   type="button"
                   onClick={() => setShowAddProductModal(false)}
                   disabled={addingProduct}
-                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900  ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1261,7 +1261,7 @@ const InventoryManagement = () => {
       {showBulkUpdateModal && (
         <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left  transition-all sm:my-8 sm:w-full sm:max-w-lg">
               {/* Modal Header */}
               <div className="bg-white px-4 pt-4 pb-2 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1427,7 +1427,7 @@ const InventoryManagement = () => {
                   type="button"
                   onClick={handleBulkUpdate}
                   disabled={bulkUpdating}
-                  className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white  hover:bg-blue-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {bulkUpdating ? (
                     <>
@@ -1452,7 +1452,7 @@ const InventoryManagement = () => {
                     setBulkQuantity('');
                   }}
                   disabled={bulkUpdating}
-                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
+                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900  ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
                 >
                   Cancel
                 </button>

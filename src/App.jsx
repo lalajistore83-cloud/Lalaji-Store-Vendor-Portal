@@ -20,6 +20,7 @@ import {
   LockClosedIcon,
   ExclamationTriangleIcon,
   ChatBubbleLeftRightIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { useState, useEffect } from "react";
 import {
@@ -39,6 +40,7 @@ import ProductManagement from "./Components/ProductManagement";
 import SelectProducts from "./Components/SelectProducts";
 import OrderManagement from "./Components/OrderManagement";
 import InventoryManagement from "./Components/InventoryManagement";
+import BillingManagement from "./Components/BillingManagement";
 import WalletPayments from "./Components/WalletPayments";
 import Analytics from "./Components/Analytics";
 import ProfileManagement from "./Components/ProfileManagement";
@@ -166,12 +168,19 @@ const VendorLayout = ({ children }) => {
 
   const navigation = [
     {
+      section: "QUICK ACTIONS",
+      items: [
+        { name: "New Bill", href: "/billing?tab=new", icon: CreditCardIcon, requiresVerification: true, highlight: true },
+      ]
+    },
+    {
       section: "GENERAL",
       items: [
         { name: "Dashboard", href: "/dashboard", icon: HomeIcon, requiresVerification: false },
         { name: "Products", href: "/products", icon: CubeIcon, requiresVerification: true },
         { name: "Select Products", href: "/select-products", icon: TagIcon, requiresVerification: false },
         { name: "Inventory", href: "/inventory", icon: ArchiveBoxIcon, requiresVerification: true },
+        { name: "Bill History", href: "/billing?tab=history", icon: DocumentTextIcon, requiresVerification: true },
         { name: "Orders", href: "/orders", icon: ShoppingBagIcon, requiresVerification: true },
         { name: "Complaints", href: "/complaints", icon: ChatBubbleLeftRightIcon, requiresVerification: true },
         { name: "Delivery Team", href: "/delivery-team", icon: TruckIcon, requiresVerification: true },
@@ -384,6 +393,7 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
                 {section.items.map((item) => {
                   const isLocked = item.requiresVerification && !isVerified;
                   const itemActive = isActive(item.href);
+                  const isHighlight = item.highlight;
                   
                   return (
                     <li key={item.name}>
@@ -395,6 +405,8 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
                             ? 'bg-blue-600 text-white'
                             : isLocked
                             ? 'text-gray-400 cursor-not-allowed opacity-60'
+                            : isHighlight
+                            ? 'text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 '
                             : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
                         } ${collapsed ? 'justify-center' : ''}`}
                         title={collapsed ? (isLocked ? `${item.name} (Verification Required)` : item.name) : undefined}
@@ -406,6 +418,8 @@ const SidebarContent = ({ navigation, onClose, isActive, handleLogout, collapsed
                                 ? 'text-white' 
                                 : isLocked
                                 ? 'text-gray-400'
+                                : isHighlight
+                                ? 'text-white'
                                 : 'text-gray-500 group-hover:text-blue-600'
                             }`}
                           />
@@ -575,6 +589,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <InventoryManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/billing"
+            element={
+              <ProtectedRoute>
+                <BillingManagement />
               </ProtectedRoute>
             }
           />

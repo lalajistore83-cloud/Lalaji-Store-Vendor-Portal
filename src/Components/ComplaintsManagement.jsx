@@ -541,7 +541,7 @@ const ComplaintsManagement = () => {
         <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
             
-            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left  transition-all sm:my-8 sm:w-full sm:max-w-2xl">
               {/* Modal Header */}
               <div className="bg-white px-4 pt-4 pb-2 sm:p-4 sm:pb-2">
                 <div className="flex items-center justify-between">
@@ -796,7 +796,7 @@ const ComplaintsManagement = () => {
                 <button
                   type="button"
                   onClick={() => setShowDetailsModal(false)}
-                  className="inline-flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 sm:ml-2 sm:w-auto"
+                  className="inline-flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-3 py-1.5 text-xs font-medium text-white  hover:bg-blue-700 sm:ml-2 sm:w-auto"
                 >
                   Close
                 </button>
