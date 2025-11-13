@@ -95,6 +95,12 @@ const ProfileManagement = () => {
   const [qrCodeFile, setQrCodeFile] = useState(null);
   const [qrCodePreview, setQrCodePreview] = useState(null);
 
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+
+  const [fullScreenImage, setFullScreenImage] = useState(null);
+  const [fullScreenTitle, setFullScreenTitle] = useState('');
+
   const states = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
     'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
@@ -119,6 +125,26 @@ const ProfileManagement = () => {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  // Handle ESC key to close full screen modal
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && fullScreenImage) {
+        closeFullScreen();
+      }
+    };
+
+    if (fullScreenImage) {
+      document.addEventListener('keydown', handleEscKey);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [fullScreenImage]);
 
   const fetchProfile = async (isRefresh = false) => {
     try {
@@ -220,27 +246,36 @@ const ProfileManagement = () => {
       if (qrCodeFile) {
         try {
           console.log('Uploading QR code...');
-          const formData = new FormData();
-          formData.append('qrCode', qrCodeFile);
+          const qrFormData = new FormData();
+          qrFormData.append('bankQR', qrCodeFile);
           
           const token = localStorage.getItem('vendor_token');
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents-cloudinary`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
             },
-            body: formData
+            body: qrFormData
           });
 
-          if (response.ok) {
-            const data = await response.json();
-            if (data.data && data.data.length > 0) {
-              uploadedQrUrl = data.data[0].url;
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to upload QR code');
+          }
+
+          const data = await response.json();
+          console.log('QR code upload response:', data);
+          
+          if (data.data && data.data.length > 0) {
+            // Find the bankQR upload in the response
+            const qrUpload = data.data.find(doc => doc.type === 'bankQR');
+            if (qrUpload) {
+              uploadedQrUrl = qrUpload.url;
             }
           }
         } catch (uploadErr) {
           console.error('QR code upload error:', uploadErr);
-          setError('Failed to upload QR code. Please try again.');
+          setError(uploadErr.message || 'Failed to upload QR code. Please try again.');
           setTimeout(() => setError(null), 5000);
           return;
         }
@@ -372,7 +407,8 @@ const ProfileManagement = () => {
     });
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents`, {
+      // Try Cloudinary endpoint first (more reliable)
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents-cloudinary`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -406,13 +442,23 @@ const ProfileManagement = () => {
     const token = localStorage.getItem('vendor_token');
     const formData = new FormData();
 
-    // Append each file to FormData with the document type as field name
+    // Map document types to backend field names
+    const fieldNameMap = {
+      'gst': 'gstDocument',
+      'pan': 'panDocument',
+      'aadhar': 'aadharDocument',
+      'license': 'licenseDocument'
+    };
+
+    const fieldName = fieldNameMap[docType] || `${docType}Document`;
+
+    // Append each file to FormData with the correct backend field name
     files.forEach((file) => {
-      formData.append(docType, file);
+      formData.append(fieldName, file);
     });
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents-cloudinary`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -519,6 +565,70 @@ const ProfileManagement = () => {
       setQrCodeFile(file);
       setQrCodePreview(URL.createObjectURL(file));
     }
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setError(null);
+      
+      // Create preview
+      const preview = URL.createObjectURL(file);
+      setAvatarPreview(preview);
+      
+      // Upload immediately
+      const formData = new FormData();
+      formData.append('avatar', file);
+      
+      const token = localStorage.getItem('vendor_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload avatar');
+      }
+
+      const data = await response.json();
+      console.log('Avatar upload response:', data);
+
+      // Update profile with new avatar
+      setProfile(prev => ({
+        ...prev,
+        avatar: data.data?.avatarUrl || data.data?.user?.avatar
+      }));
+
+      setSuccessMessage('Profile picture updated successfully!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      setError(err.message || 'Failed to upload avatar');
+      setTimeout(() => setError(null), 5000);
+      
+      // Revoke preview on error
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+        setAvatarPreview(null);
+      }
+    }
+  };
+
+  const openFullScreen = (imageUrl, title) => {
+    setFullScreenImage(imageUrl);
+    setFullScreenTitle(title);
+  };
+
+  const closeFullScreen = () => {
+    setFullScreenImage(null);
+    setFullScreenTitle('');
   };
 
   const startEdit = (section) => {
@@ -706,9 +816,9 @@ const ProfileManagement = () => {
           <div className="flex items-start space-x-4">
             <div className="relative shrink-0">
               <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden ring-2 ring-white">
-                {profile?.avatar ? (
+                {profile?.avatar || avatarPreview ? (
                   <img
-                    src={profile.avatar}
+                    src={avatarPreview || profile.avatar}
                     alt="Profile"
                     className="h-full w-full object-cover"
                   />
@@ -716,7 +826,18 @@ const ProfileManagement = () => {
                   <UserIcon className="h-8 w-8 text-white" />
                 )}
               </div>
-              <button className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center text-white hover:bg-blue-700  border-2 border-white">
+              <input
+                type="file"
+                id="avatar-upload"
+                className="hidden"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+              />
+              <button 
+                onClick={() => document.getElementById('avatar-upload').click()}
+                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center text-white hover:bg-blue-700 border-2 border-white transition-colors"
+                title="Change profile picture"
+              >
                 <CameraIcon className="h-3 w-3" />
               </button>
             </div>
@@ -1198,7 +1319,7 @@ const ProfileManagement = () => {
                   <div className="flex items-start gap-3">
                     {/* QR Code Display */}
                     {(qrCodePreview || profile?.vendorInfo?.bankDetails?.qrUpload) && (
-                      <div className="relative">
+                      <div className="relative group">
                         <div className="w-48 h-48 border rounded-lg overflow-hidden bg-gray-50">
                           <img
                             src={qrCodePreview || profile.vendorInfo.bankDetails.qrUpload}
@@ -1211,6 +1332,16 @@ const ProfileManagement = () => {
                             New QR Code
                           </div>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => openFullScreen(qrCodePreview || profile.vendorInfo.bankDetails.qrUpload, 'Payment QR Code')}
+                          className="absolute inset-0 bg-black/40 bg-opacity-0 hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                        >
+                          <div className="text-white text-xs font-medium flex items-center">
+                            <EyeIcon className="h-4 w-4 mr-1" />
+                            View Full Screen
+                          </div>
+                        </button>
                       </div>
                     )}
                     
@@ -1257,7 +1388,7 @@ const ProfileManagement = () => {
                       
                       {/* Display existing or new document */}
                       {(existingDoc?.url || newDoc) && (
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden bg-gray-50 mb-2">
+                        <div className="border border-zinc-200 rounded-lg overflow-hidden bg-gray-50 mb-2 relative group">
                           {newDoc ? (
                             <div className="relative">
                               <div className="h-32 flex items-center justify-center bg-blue-50">
@@ -1271,23 +1402,36 @@ const ProfileManagement = () => {
                               </div>
                             </div>
                           ) : existingDoc?.url.toLowerCase().endsWith('.pdf') ? (
-                            <div className="h-32 flex items-center justify-center">
+                            <div className="h-32 flex flex-col items-center justify-center">
                               <DocumentIcon className="h-12 w-12 text-gray-400" />
                               <a
                                 href={existingDoc.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="ml-2 text-xs text-blue-600 hover:underline"
+                                className="mt-2 text-xs text-blue-600 hover:underline inline-flex items-center"
                               >
+                                <EyeIcon className="h-3 w-3 mr-1" />
                                 View PDF
                               </a>
                             </div>
                           ) : (
-                            <img
-                              src={existingDoc?.url}
-                              alt={`${docType} document`}
-                              className="w-full h-32 object-cover"
-                            />
+                            <>
+                              <img
+                                src={existingDoc?.url}
+                                alt={`${docType} document`}
+                                className="w-full h-32 object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => openFullScreen(existingDoc?.url, `${docType.toUpperCase()} Document`)}
+                                className="absolute inset-0 bg-black/40 bg-opacity-0 hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                              >
+                                <div className="text-white text-xs font-medium flex items-center">
+                                  <EyeIcon className="h-4 w-4 mr-1" />
+                                  View Full Screen
+                                </div>
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
@@ -1361,15 +1505,34 @@ const ProfileManagement = () => {
                 <img
                   src={image}
                   alt={`Store ${index + 1}`}
-                  className="h-full w-full object-cover hover:scale-110 transition-transform duration-200"
+                  className="h-full w-full object-cover hover:scale-110 transition-transform duration-200 cursor-pointer"
+                  onClick={() => openFullScreen(image, `Store Image ${index + 1}`)}
                 />
                 {isEditing && (
                   <button
                     type="button"
-                    onClick={() => handleImageDelete(image)}
-                    className="absolute top-1 right-1 h-6 w-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleImageDelete(image);
+                    }}
+                    className="absolute top-1 right-1 h-6 w-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
                   >
                     <XMarkIcon className="h-4 w-4" />
+                  </button>
+                )}
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFullScreen(image, `Store Image ${index + 1}`);
+                    }}
+                    className="absolute inset-0 bg-black/40 bg-opacity-0 hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                  >
+                    <div className="text-white text-xs font-medium flex items-center">
+                      <EyeIcon className="h-4 w-4 mr-1" />
+                      View
+                    </div>
                   </button>
                 )}
               </div>
@@ -1381,15 +1544,19 @@ const ProfileManagement = () => {
                 <img
                   src={img.preview}
                   alt={`New ${index + 1}`}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover cursor-pointer"
+                  onClick={() => openFullScreen(img.preview, `New Store Image ${index + 1}`)}
                 />
                 <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded">
                   New
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleImageRemove(index)}
-                  className="absolute top-1 right-1 h-6 w-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleImageRemove(index);
+                  }}
+                  className="absolute top-1 right-1 h-6 w-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10"
                 >
                   <XMarkIcon className="h-4 w-4" />
                 </button>
@@ -1505,6 +1672,67 @@ const ProfileManagement = () => {
       {error && (
         <div className="rounded-md bg-red-50 p-4">
           <div className="text-sm text-red-700">{error}</div>
+        </div>
+      )}
+
+      {/* Full Screen Image Modal */}
+      {fullScreenImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 bg-opacity-90 p-4"
+          onClick={closeFullScreen}
+        >
+          <div className="relative max-w-7xl max-h-full w-full h-full flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 text-white">
+              <h3 className="text-lg font-semibold">{fullScreenTitle}</h3>
+              <button
+                onClick={closeFullScreen}
+                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Image Container */}
+            <div 
+              className="flex-1 flex items-center justify-center overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={fullScreenImage}
+                alt={fullScreenTitle}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+            </div>
+
+            {/* Footer with Actions */}
+            <div className="flex items-center justify-center mt-4 space-x-4">
+              <a
+                href={fullScreenImage}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Open in New Tab
+              </a>
+              <a
+                href={fullScreenImage}
+                download
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Download
+              </a>
+              <button
+                onClick={closeFullScreen}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
+              >
+                Close (ESC)
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
