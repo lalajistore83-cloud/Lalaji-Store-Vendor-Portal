@@ -1,5 +1,5 @@
 // API utilities for vendor portal
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL 
 
 // Helper function to make authenticated requests
 const apiRequest = async (endpoint, options = {}) => {

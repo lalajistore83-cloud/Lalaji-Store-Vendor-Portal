@@ -250,7 +250,7 @@ const ProfileManagement = () => {
           qrFormData.append('bankQR', qrCodeFile);
           
           const token = localStorage.getItem('vendor_token');
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents-cloudinary`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL }/vendor/documents-cloudinary`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -408,7 +408,7 @@ const ProfileManagement = () => {
 
     try {
       // Try Cloudinary endpoint first (more reliable)
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents-cloudinary`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/vendor/documents-cloudinary`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -458,7 +458,7 @@ const ProfileManagement = () => {
     });
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/documents-cloudinary`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL }/vendor/documents-cloudinary`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -583,7 +583,7 @@ const ProfileManagement = () => {
       formData.append('avatar', file);
       
       const token = localStorage.getItem('vendor_token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/avatar`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL }/auth/avatar`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -1,5 +1,5 @@
 // Notification Service with SSE for real-time order updates
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL 
 
 class NotificationService {
   constructor() {
