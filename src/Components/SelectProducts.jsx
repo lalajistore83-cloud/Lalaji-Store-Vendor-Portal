@@ -409,13 +409,14 @@ const SelectProducts = () => {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      fetchProducts();
-    }, searchTerm ? 500 : 0);
+useEffect(() => {
+  const debounceTimer = setTimeout(() => {
+    fetchProducts();
+  }, 500);
 
-    return () => clearTimeout(debounceTimer);
-  }, [currentPage, searchTerm, filterCategory, filterSubcategory]);
+  return () => clearTimeout(debounceTimer);
+}, [currentPage, searchTerm, filterCategory, filterSubcategory]);
+
 
   // Format price including GST
   const formatPriceWithGST = (product) => {
@@ -463,13 +464,13 @@ const SelectProducts = () => {
     return words.slice(0, 2).map(word => word[0]).join('').toUpperCase();
   };
 
-  if (loading && currentPage === 1) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  // if (loading && currentPage === 1) {
+  //   return (
+  //     <div className="flex items-center justify-center h-64">
+  //       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="space-y-3">
