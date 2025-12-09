@@ -912,6 +912,30 @@ const ProductManagement = () => {
       // Add submitted products (these are already pending by definition)
       ...submittedProducts
     ];
+  }
+  // Special handling for IN STOCK - only products with good stock (NOT low stock)
+  else if (filterStatus === 'in_stock') {
+    currentProducts = products.filter(product => {
+      const stock = product.inventory?.stock || 0;
+      const threshold = product.inventory?.lowStockThreshold || 10;
+      const isInStock = product.inventory?.isInStock !== false;
+      const isLowStock = product.inventory?.isLowStock === true || stock <= threshold;
+      
+      // In stock means: has stock AND stock is above threshold (not low)
+      return isInStock && stock > 0 && !isLowStock && stock > threshold;
+    });
+  }
+  // Special handling for LOW STOCK - only products with low stock
+  else if (filterStatus === 'low_stock') {
+    currentProducts = products.filter(product => {
+      const stock = product.inventory?.stock || 0;
+      const threshold = product.inventory?.lowStockThreshold || 10;
+      const isLowStock = product.inventory?.isLowStock === true || 
+                        (stock > 0 && stock <= threshold);
+      
+      // Low stock means: has some stock BUT at or below threshold
+      return isLowStock && stock > 0;
+    });
   } 
   // Special handling for out of stock - filter by inventory
   else if (filterStatus === 'out_of_stock') {
@@ -929,15 +953,10 @@ const ProductManagement = () => {
       (product.inventory?.stock === undefined || product.inventory.stock > 0)
     );
   }
-  // Special handling for inactive/low stock
+  // Special handling for inactive
   else if (filterStatus === 'inactive') {
     currentProducts = products.filter(product => 
-      product.status === 'inactive' || 
-      product.inventory?.isLowStock === true ||
-      (product.inventory?.stock !== undefined && 
-       product.inventory?.lowStockThreshold !== undefined &&
-       product.inventory.stock <= product.inventory.lowStockThreshold &&
-       product.inventory.stock > 0)
+      product.status === 'inactive'
     );
   }
 
@@ -1087,11 +1106,11 @@ const ProductManagement = () => {
         {/* In Stock */}
         <button
           onClick={() => {
-            setFilterStatus('active');
+            setFilterStatus('in_stock');
             setCurrentPage(1);
           }}
           className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-green-300 transition-all text-left ${
-            filterStatus === 'active' ? 'ring-2 ring-green-500' : ''
+            filterStatus === 'in_stock' ? 'ring-2 ring-green-500' : ''
           }`}
         >
           <div className="flex items-center justify-between">
@@ -1108,11 +1127,11 @@ const ProductManagement = () => {
         {/* Low Stock */}
         <button
           onClick={() => {
-            setFilterStatus('inactive');
+            setFilterStatus('low_stock');
             setCurrentPage(1);
           }}
           className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-yellow-300 transition-all text-left ${
-            filterStatus === 'inactive' ? 'ring-2 ring-yellow-500' : ''
+            filterStatus === 'low_stock' ? 'ring-2 ring-yellow-500' : ''
           }`}
         >
           <div className="flex items-center justify-between">
