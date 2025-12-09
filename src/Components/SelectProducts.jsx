@@ -523,7 +523,7 @@ useEffect(() => {
                 placeholder="Search by name, brand, or description..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="block w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 text-sm focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-gray-200"
               />
             </div>
           </div>
