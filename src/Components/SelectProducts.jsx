@@ -169,7 +169,7 @@ const SelectProducts = () => {
   // Fetch available products
   const fetchProducts = async () => {
     try {
-      setLoading(true);
+      // setLoading(true);
       setError(null);
 
       const params = {
