@@ -1138,11 +1138,9 @@ const ProductManagement = () => {
         <button
           onClick={() => {
             setFilterStatus('low_stock');
-            setFilterStatus('low_stock');
             setCurrentPage(1);
           }}
           className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-yellow-300 transition-all text-left ${
-            filterStatus === 'low_stock' ? 'ring-2 ring-yellow-500' : ''
             filterStatus === 'low_stock' ? 'ring-2 ring-yellow-500' : ''
           }`}
         >
