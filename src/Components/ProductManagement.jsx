@@ -925,15 +925,20 @@ const ProductManagement = () => {
       (product.inventory?.stock === undefined || product.inventory.stock > 0)
     );
   }
-  // Special handling for inactive/low stock
-  else if (filterStatus === 'inactive') {
-    currentProducts = products.filter(product => 
-      product.status === 'inactive' || 
+  // Special handling for low stock only
+  else if (filterStatus === 'low_stock') {
+    currentProducts = products.filter(product =>
       product.inventory?.isLowStock === true ||
-      (product.inventory?.stock !== undefined && 
+      (product.inventory?.stock !== undefined &&
        product.inventory?.lowStockThreshold !== undefined &&
        product.inventory.stock <= product.inventory.lowStockThreshold &&
        product.inventory.stock > 0)
+    );
+  }
+  // Special handling for inactive status
+  else if (filterStatus === 'inactive') {
+    currentProducts = products.filter(product =>
+      product.status === 'inactive'
     );
   }
 
@@ -1051,11 +1056,11 @@ const ProductManagement = () => {
         {/* Low Stock */}
         <button
           onClick={() => {
-            setFilterStatus('inactive');
+            setFilterStatus('low_stock');
             setCurrentPage(1);
           }}
           className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-yellow-300 transition-all text-left ${
-            filterStatus === 'inactive' ? 'ring-2 ring-yellow-500' : ''
+            filterStatus === 'low_stock' ? 'ring-2 ring-yellow-500' : ''
           }`}
         >
           <div className="flex items-center justify-between">
@@ -1140,6 +1145,7 @@ const ProductManagement = () => {
             options={[
               { value: 'all', label: 'All Status' },
               { value: 'active', label: 'Active' },
+              { value: 'low_stock', label: 'Low Stock' },
               { value: 'inactive', label: 'Inactive' },
               { value: 'out_of_stock', label: 'Out of Stock' },
               { value: 'pending_verification', label: 'Pending Verification' }

@@ -5,7 +5,7 @@ import { auth } from '../utils/auth';
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    emailOrPhone: '',
+    phoneNumber: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +43,7 @@ const Login = () => {
 
     try {
       console.log('Login form data:', formData);
-      await auth.login(formData.emailOrPhone, formData.password);
+      await auth.login(formData.phoneNumber, formData.password);
       setIsAuthenticated(true);
     } catch (error) {
       console.error('Login error:', error);
@@ -90,24 +90,24 @@ const Login = () => {
               )}
 
               <div>
-                <label htmlFor="emailOrPhone" className="block text-sm font-medium text-gray-700">
-                  Email or Phone Number
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
+                  Phone Number
                 </label>
                 <div className="mt-1">
                   <input
-                    id="emailOrPhone"
-                    name="emailOrPhone"
-                    type="text"
-                    autoComplete="username"
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    type="tel"
+                    autoComplete="tel"
                     required
-                    value={formData.emailOrPhone}
+                    value={formData.phoneNumber}
                     onChange={handleChange}
                     className="block w-full appearance-none rounded-lg border border-gray-300 px-3 py-2 placeholder-gray-400  focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                    placeholder="Enter your email or phone number"
+                    placeholder="Enter your phone number (e.g., 9876543210)"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  You can use either your email address or phone number
+                  Enter your registered phone number (with or without +91)
                 </p>
               </div>
 
