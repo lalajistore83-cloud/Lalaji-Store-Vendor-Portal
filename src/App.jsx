@@ -133,7 +133,7 @@ const VendorLayout = ({ children }) => {
       
       // Update via API
       const token = localStorage.getItem('vendor_token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/vendor/profile`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/vendor/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

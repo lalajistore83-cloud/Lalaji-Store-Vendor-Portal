@@ -169,7 +169,7 @@ const SelectProducts = () => {
   // Fetch available products
   const fetchProducts = async () => {
     try {
-      setLoading(true);
+      // setLoading(true);
       setError(null);
 
       const params = {
@@ -409,13 +409,14 @@ const SelectProducts = () => {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      fetchProducts();
-    }, searchTerm ? 500 : 0);
+useEffect(() => {
+  const debounceTimer = setTimeout(() => {
+    fetchProducts();
+  }, 500);
 
-    return () => clearTimeout(debounceTimer);
-  }, [currentPage, searchTerm, filterCategory, filterSubcategory]);
+  return () => clearTimeout(debounceTimer);
+}, [currentPage, searchTerm, filterCategory, filterSubcategory]);
+
 
   // Format price including GST
   const formatPriceWithGST = (product) => {
@@ -463,13 +464,13 @@ const SelectProducts = () => {
     return words.slice(0, 2).map(word => word[0]).join('').toUpperCase();
   };
 
-  if (loading && currentPage === 1) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  // if (loading && currentPage === 1) {
+  //   return (
+  //     <div className="flex items-center justify-center h-64">
+  //       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="space-y-3">
@@ -522,7 +523,7 @@ const SelectProducts = () => {
                 placeholder="Search by name, brand, or description..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="block w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 text-sm focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-gray-200"
               />
             </div>
           </div>

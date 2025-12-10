@@ -789,7 +789,11 @@ const ProductManagement = () => {
       const response = await getProduct(productId);
 
       if (response?.success && response?.data) {
-        setViewingProduct(response.data);
+        // Preserve vendor-specific inventory data from the list view
+        const productData = response.data;
+        productData.vendorInventory = vendorProduct.inventory; // Keep vendor-specific inventory
+        productData.vendorStatus = vendorProduct.status; // Keep vendor-specific status
+        setViewingProduct(productData);
       } else {
         console.error('Failed to fetch product details:', response);
         setError('Failed to load product details');
@@ -908,6 +912,30 @@ const ProductManagement = () => {
       // Add submitted products (these are already pending by definition)
       ...submittedProducts
     ];
+  }
+  // Special handling for IN STOCK - only products with good stock (NOT low stock)
+  else if (filterStatus === 'in_stock') {
+    currentProducts = products.filter(product => {
+      const stock = product.inventory?.stock || 0;
+      const threshold = product.inventory?.lowStockThreshold || 10;
+      const isInStock = product.inventory?.isInStock !== false;
+      const isLowStock = product.inventory?.isLowStock === true || stock <= threshold;
+      
+      // In stock means: has stock AND stock is above threshold (not low)
+      return isInStock && stock > 0 && !isLowStock && stock > threshold;
+    });
+  }
+  // Special handling for LOW STOCK - only products with low stock
+  else if (filterStatus === 'low_stock') {
+    currentProducts = products.filter(product => {
+      const stock = product.inventory?.stock || 0;
+      const threshold = product.inventory?.lowStockThreshold || 10;
+      const isLowStock = product.inventory?.isLowStock === true || 
+                        (stock > 0 && stock <= threshold);
+      
+      // Low stock means: has some stock BUT at or below threshold
+      return isLowStock && stock > 0;
+    });
   } 
   // Special handling for out of stock - filter by inventory
   else if (filterStatus === 'out_of_stock') {
@@ -955,27 +983,80 @@ const ProductManagement = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-red-100 text-red-800',
-      out_of_stock: 'bg-yellow-100 text-yellow-800',
-      pending_approval: 'bg-purple-100 text-purple-800'
-    };
+  // const getStatusBadge = (status) => {
+  //   const styles = {
+  //     active: 'bg-green-100 text-green-800',
+  //     inactive: 'bg-red-100 text-red-800',
+  //     out_of_stock: 'bg-yellow-100 text-yellow-800',
+  //     pending_approval: 'bg-purple-100 text-purple-800'
+  //   };
 
-    const labels = {
-      active: 'Active',
-      inactive: 'Inactive',
-      out_of_stock: 'Out of Stock',
-      pending_approval: 'Pending Approval'
-    };
+  //   const labels = {
+  //     active: 'Active',
+  //     inactive: 'Inactive',
+  //     out_of_stock: 'Out of Stock',
+  //     pending_approval: 'Pending Approval'
+  //   };
 
+  //   return (
+  //     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>
+  //       {labels[status]}
+  //     </span>
+  //   );
+  // };
+
+  const getStatusBadge = (status, inventory) => {
+  // Check for pending status first
+  if (status === 'pending_approval' || status === 'pending_verification') {
     return (
-      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>
-        {labels[status]}
+      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-800">
+        Pending Approval
       </span>
     );
+  }
+
+  // If inventory exists, calculate stock status
+  if (inventory) {
+    const stock = inventory.stock || inventory.totalStock || 0;
+    const lowStockThreshold = inventory.lowStockThreshold || 10;
+    const isInStock = inventory.isInStock !== undefined ? inventory.isInStock : stock > 0;
+    const isLowStock = inventory.isLowStock !== undefined ? inventory.isLowStock : stock <= lowStockThreshold && stock > 0;
+
+    if (!isInStock || stock === 0) {
+      return (
+        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-800">
+          Out of Stock
+        </span>
+      );
+    } else if (isLowStock) {
+      return (
+        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">
+          Low Stock
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800">
+          In Stock
+        </span>
+      );
+    }
+  }
+
+  // Fallback to status-based badge
+  const statusMap = {
+    'active': { label: 'Active', colorClass: 'bg-green-100 text-green-800' },
+    'inactive': { label: 'Inactive', colorClass: 'bg-gray-100 text-gray-800' },
   };
+
+  const statusInfo = statusMap[status] || { label: 'Unknown', colorClass: 'bg-gray-100 text-gray-800' };
+
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusInfo.colorClass}`}>
+      {statusInfo.label}
+    </span>
+  );
+};
 
   if (loading) {
     return (
@@ -1035,11 +1116,11 @@ const ProductManagement = () => {
         {/* In Stock */}
         <button
           onClick={() => {
-            setFilterStatus('active');
+            setFilterStatus('in_stock');
             setCurrentPage(1);
           }}
           className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-green-300 transition-all text-left ${
-            filterStatus === 'active' ? 'ring-2 ring-green-500' : ''
+            filterStatus === 'in_stock' ? 'ring-2 ring-green-500' : ''
           }`}
         >
           <div className="flex items-center justify-between">
@@ -1057,9 +1138,11 @@ const ProductManagement = () => {
         <button
           onClick={() => {
             setFilterStatus('low_stock');
+            setFilterStatus('low_stock');
             setCurrentPage(1);
           }}
           className={`bg-white border border-gray-200 rounded-lg p-3 hover:border-yellow-300 transition-all text-left ${
+            filterStatus === 'low_stock' ? 'ring-2 ring-yellow-500' : ''
             filterStatus === 'low_stock' ? 'ring-2 ring-yellow-500' : ''
           }`}
         >
@@ -1307,7 +1390,7 @@ const ProductManagement = () => {
                       )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {getStatusBadge(isPendingVerification ? 'pending_approval' : status)}
+                      {getStatusBadge(isPendingVerification ? 'pending_approval' : status,vendorProduct.inventory)}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                       {isPendingVerification ? (
@@ -1427,7 +1510,7 @@ const ProductManagement = () => {
                     )}
                     {/* Status Badge */}
                     <div className="absolute top-2 right-2">
-                      {getStatusBadge(isPendingVerification ? 'pending_approval' : status)}
+                      {getStatusBadge(isPendingVerification ? 'pending_approval' : status, vendorProduct.inventory)}
                     </div>
                   </div>
 
@@ -2389,7 +2472,11 @@ const ProductManagement = () => {
                             </div>
                           )}
                           <div className="flex justify-between">
-                            <dt className="text-xs text-gray-500">Total Stock</dt>
+                            <dt className="text-xs text-gray-500">My Stock</dt>
+                            <dd className="text-sm font-medium text-gray-900">{viewingProduct.vendorInventory?.stock || 0}</dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="text-xs text-gray-500">Total Stock (All Vendors)</dt>
                             <dd className="text-sm font-medium text-gray-900">{viewingProduct.inventory?.totalStock || 0}</dd>
                           </div>
                           <div className="flex justify-between">
@@ -2399,14 +2486,7 @@ const ProductManagement = () => {
                           <div className="flex justify-between items-center">
                             <dt className="text-xs text-gray-500">Stock Status</dt>
                             <dd>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                viewingProduct.inventory?.stockStatus === 'in_stock' ? 'bg-green-100 text-green-800' :
-                                viewingProduct.inventory?.stockStatus === 'low_stock' ? 'bg-yellow-100 text-yellow-800' :
-                                viewingProduct.inventory?.stockStatus === 'out_of_stock' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {viewingProduct.inventory?.stockStatus?.replace('_', ' ').toUpperCase() || 'N/A'}
-                              </span>
+                              {getStatusBadge(viewingProduct.vendorStatus || viewingProduct.status || 'active', viewingProduct.vendorInventory || viewingProduct.inventory)}
                             </dd>
                           </div>
                         </dl>
