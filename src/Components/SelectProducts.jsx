@@ -269,18 +269,35 @@ const SelectProducts = () => {
       setError(null);
       setSuccess(null);
 
-      await selectProduct({
+      const stockValue = parseInt(stock);
+      const response = await selectProduct({
         productId: product._id,
-        stock: parseInt(stock),
+        stock: stockValue,
         notes: notes
       });
 
       setSuccess(`Successfully added "${product.name}" to your inventory!`);
       setSelectedProducts(prev => new Set([...prev, product._id]));
+
+      // Update the product in local state with vendor stock and vendorProductId
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p._id === product._id
+            ? {
+                ...p,
+                isSelectedByVendor: true,
+                vendorStock: stockValue,
+                stock: stockValue,
+                vendorProductId: response?.data?._id || response?.data?.id
+              }
+            : p
+        )
+      );
+
       setShowSelectionModal(false);
       setSelectedProductForModal(null);
       setSelectionData({ stock: '', notes: '' });
-      
+
       // Auto-hide success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -319,10 +336,16 @@ const SelectProducts = () => {
       });
       
       // Update the product in the local state to reflect removal
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p._id === product._id 
-            ? { ...p, isSelectedByVendor: false, vendorProductId: null }
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p._id === product._id
+            ? {
+                ...p,
+                isSelectedByVendor: false,
+                vendorProductId: null,
+                vendorStock: null,
+                stock: null
+              }
             : p
         )
       );
@@ -824,7 +847,9 @@ useEffect(() => {
                         {/* Stock */}
                         <td className="px-4 py-3">
                           <div className="text-sm text-gray-900">
-                            {product.stockQuantity || 0}
+                            {(product.isSelectedByVendor || selectedProducts.has(product._id))
+                              ? (product.vendorStock ?? product.stock ?? '-')
+                              : '-'}
                           </div>
                         </td>
 
