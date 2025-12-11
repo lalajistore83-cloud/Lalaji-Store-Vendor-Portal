@@ -470,6 +470,21 @@ const ProductManagement = () => {
       if (allResponse?.success && allResponse?.data) {
         const products = allResponse.data;
         
+        // In fetchStatusCounts
+const inStockCount = products.filter(p => {
+  const stock = p.inventory?.stock ?? 0;
+  const threshold = p.inventory?.lowStockThreshold ?? 10;
+  const isInStock = p.inventory?.isInStock ?? stock > 0;
+  const isLowStock = p.inventory?.isLowStock ?? (stock <= threshold && stock > 0);
+  return isInStock && stock > 0 && !isLowStock;
+}).length;
+
+const lowStockCount = products.filter(p => {
+  const stock = p.inventory?.stock ?? 0;
+  const threshold = p.inventory?.lowStockThreshold ?? 10;
+  const isLowStock = p.inventory?.isLowStock ?? (stock <= threshold && stock > 0);
+  return isLowStock && stock > 0;
+}).length;
         // Calculate counts based on the new API structure and inventory status
         const active = products.filter(p => 
           p.status === 'active' && 
@@ -503,6 +518,8 @@ const ProductManagement = () => {
 
         setStatusCounts({
           total: products.length,
+            instock: inStockCount,
+            lowstock: lowStockCount,
           active: active,
           inactive: inactive,
           out_of_stock: outOfStock,
@@ -1126,7 +1143,9 @@ const ProductManagement = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">In Stock</p>
-              <p className="text-xl font-bold text-gray-900 mt-0.5">{statusCounts.active}</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">
+  {statusCounts.instock}
+</p>
             </div>
             <div className="bg-green-100 rounded-lg p-2">
               <CheckCircleIcon className="h-5 w-5 text-green-600" />
@@ -1147,8 +1166,9 @@ const ProductManagement = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Low Stock</p>
-              <p className="text-xl font-bold text-gray-900 mt-0.5">{statusCounts.inactive}</p>
-            </div>
+<p className="text-xl font-bold text-gray-900 mt-0.5">
+  {statusCounts.lowstock}
+</p>            </div>
             <div className="bg-yellow-100 rounded-lg p-2">
               <XCircleIcon className="h-5 w-5 text-yellow-600" />
             </div>

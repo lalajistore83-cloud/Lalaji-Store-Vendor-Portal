@@ -131,52 +131,104 @@ const InventoryManagement = () => {
     }
   };
 
-  const handleBulkUpdate = async () => {
-    try {
-      setBulkUpdating(true);
-      setError(null);
+const handleBulkUpdate = async () => {
+  try {
+    setBulkUpdating(true);
+    setError(null);
 
-      if (selectedProducts.size === 0) {
-        setError('Please select at least one product');
+    if (selectedProducts.size === 0) {
+      setError('Please select at least one product');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    const MAX_STOCK_LIMIT = 500;
+
+    // Validate each selected product BEFORE sending update
+    for (const vendorProductId of selectedProducts) {
+      const product = inventory.find(item => item.vendorProductId === vendorProductId);
+      const quantity = parseInt(individualQuantities[vendorProductId] || bulkQuantity);
+
+      if (!quantity || quantity <= 0) {
+        setError("Please enter valid quantities for all products");
+        setTimeout(() => setError(null), 3000);
         return;
       }
 
-      // Prepare updates array with individual quantities
-      const updates = Array.from(selectedProducts).map(vendorProductId => {
-        const quantity = parseInt(individualQuantities[vendorProductId] || bulkQuantity);
-
-        if (!quantity || quantity <= 0) {
-          throw new Error('Please enter valid quantities for all products');
+      // ADD restriction – must not exceed max limit
+      if (bulkOperation === "add") {
+        if (product.currentStock + quantity > MAX_STOCK_LIMIT) {
+          setError(
+            `Cannot add ${quantity} units to "${product.name}". 
+             Max stock allowed is ${MAX_STOCK_LIMIT}. Current stock: ${product.currentStock}.`
+          );
+          setTimeout(() => setError(null), 3000);
+          return;
         }
-
-        return {
-          vendorProductId,
-          operation: bulkOperation,
-          quantity
-        };
-      });
-
-      const response = await bulkUpdateVendorProductStock(updates);
-
-      if (response.success) {
-        setSuccessMessage(
-          `Bulk update completed! ${response.data.successful.length} products updated successfully.`
-        );
-        setShowBulkUpdateModal(false);
-        setSelectedProducts(new Set());
-        setBulkQuantity('');
-        setIndividualQuantities({});
-        fetchInventory(true);
-      } else {
-        setError(response.message || 'Some updates failed');
       }
-    } catch (err) {
-      console.error('Error bulk updating:', err);
-      setError(err.message || 'Failed to bulk update products');
-    } finally {
-      setBulkUpdating(false);
+
+      // SUBTRACT restriction – cannot remove more than current
+      if (bulkOperation === "subtract") {
+        if (quantity > product.currentStock) {
+          setError(
+            `Cannot remove ${quantity} units from "${product.name}". 
+             Only ${product.currentStock} units available.`
+          );
+          setTimeout(() => setError(null), 3000);
+          return;
+        }
+      }
+
+      // SET restriction – must not exceed max limit
+      if (bulkOperation === "set") {
+        if (quantity > MAX_STOCK_LIMIT) {
+          setError(
+            `Cannot set stock of "${product.name}" to ${quantity}. 
+             Max allowed is ${MAX_STOCK_LIMIT}.`
+          );
+          setTimeout(() => setError(null), 3000);
+          return;
+        }
+      }
     }
-  };
+
+    // Prepare payload after validation
+    const updates = Array.from(selectedProducts).map(vendorProductId => {
+      const quantity = parseInt(individualQuantities[vendorProductId] || bulkQuantity);
+      return {
+        vendorProductId,
+        operation: bulkOperation,
+        quantity
+      };
+    });
+
+    // Call backend API
+    const response = await bulkUpdateVendorProductStock(updates);
+
+    if (response.success) {
+      setSuccessMessage(
+        `Bulk update completed! ${response.data.successful.length} products updated successfully.`
+      );
+      setTimeout(() => setSuccessMessage(null), 3000);
+
+      setShowBulkUpdateModal(false);
+      setSelectedProducts(new Set());
+      setBulkQuantity('');
+      setIndividualQuantities({});
+      fetchInventory(true);
+    } else {
+      setError(response.message || "Some updates failed");
+      setTimeout(() => setError(null), 3000);
+    }
+
+  } catch (err) {
+    console.error("Error bulk updating:", err);
+    setError(err.message || "Failed to bulk update products");
+    setTimeout(() => setError(null), 3000);
+  } finally {
+    setBulkUpdating(false);
+  }
+};
 
   const handleAddProduct = async () => {
     try {
@@ -342,9 +394,17 @@ const InventoryManagement = () => {
 
       const operation = editValues.operation;
 
+    const MAX_STOCK_LIMIT = 500; 
+
+    if (operation === 'add' && (product.currentStock + quantity) > MAX_STOCK_LIMIT) {
+      setError(`Cannot add ${quantity} units. Maximum stock limit is ${MAX_STOCK_LIMIT}. Current stock: ${product.currentStock}`);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
       // Validate remove operation
       if (operation === 'subtract' && quantity > product.currentStock) {
         setError(`Cannot remove ${quantity} units. Only ${product.currentStock} available.`);
+        setTimeout(() => setError(null), 3000);
         return;
       }
 
