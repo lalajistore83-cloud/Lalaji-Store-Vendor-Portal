@@ -13,7 +13,9 @@ import {
   TruckIcon,
   ClockIcon,
   ExclamationTriangleIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  EyeIcon,
+  EyeSlashIcon
 } from '@heroicons/react/24/outline';
 import { 
   getAllDeliveryTeam, 
@@ -33,6 +35,26 @@ const DeliveryTeamManagement = () => {
   const [selectedDeliveryBoy, setSelectedDeliveryBoy] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [vendorDeliveryId, setVendorDeliveryId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [countryCode, setCountryCode] = useState('+91');
+
+  // Country codes list
+  const countryCodes = [
+    { code: '+91', country: 'IN', name: 'India' },
+    { code: '+1', country: 'US', name: 'USA' },
+    { code: '+44', country: 'GB', name: 'UK' },
+    { code: '+971', country: 'AE', name: 'UAE' },
+    { code: '+966', country: 'SA', name: 'Saudi Arabia' },
+    { code: '+65', country: 'SG', name: 'Singapore' },
+    { code: '+61', country: 'AU', name: 'Australia' },
+    { code: '+49', country: 'DE', name: 'Germany' },
+    { code: '+33', country: 'FR', name: 'France' },
+    { code: '+81', country: 'JP', name: 'Japan' },
+    { code: '+86', country: 'CN', name: 'China' },
+    { code: '+977', country: 'NP', name: 'Nepal' },
+    { code: '+880', country: 'BD', name: 'Bangladesh' },
+    { code: '+94', country: 'LK', name: 'Sri Lanka' },
+  ];
 
   // Form state
   const [formData, setFormData] = useState({
@@ -120,15 +142,15 @@ const DeliveryTeamManagement = () => {
       
       // Create FormData for multipart/form-data upload
       const formDataToSend = new FormData();
-      
-      // Add all text fields
+
+      // Add all text fields with country code prepended to phone numbers
       formDataToSend.append('name', formData.name);
       formDataToSend.append('email', formData.email);
-      formDataToSend.append('phoneNumber', formData.phoneNumber);
+      formDataToSend.append('phoneNumber', `${countryCode}${formData.phoneNumber}`);
       formDataToSend.append('password', formData.password);
-      formDataToSend.append('mobileNumber', formData.mobileNumber || formData.phoneNumber);
+      formDataToSend.append('mobileNumber', `${countryCode}${formData.mobileNumber || formData.phoneNumber}`);
       
-      if (formData.alternateNumber) formDataToSend.append('alternateNumber', formData.alternateNumber);
+      if (formData.alternateNumber) formDataToSend.append('alternateNumber', `${countryCode}${formData.alternateNumber}`);
       if (formData.address) formDataToSend.append('address', formData.address);
       if (formData.city) formDataToSend.append('city', formData.city);
       if (formData.state) formDataToSend.append('state', formData.state);
@@ -272,6 +294,7 @@ const DeliveryTeamManagement = () => {
         profile_photo: null
       }
     });
+    setCountryCode('+91');
   };
 
   const handleInputChange = (e) => {
@@ -558,7 +581,7 @@ const DeliveryTeamManagement = () => {
                   Status
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  Actions``
                 </th>
               </tr>
             </thead>
@@ -725,15 +748,28 @@ const DeliveryTeamManagement = () => {
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Phone Number *
                           </label>
-                          <input
-                            type="tel"
-                            name="phoneNumber"
-                            value={formData.phoneNumber}
-                            onChange={handleInputChange}
-                            placeholder="e.g., +919876543210"
-                            required
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
+                          <div className="flex">
+                            <select
+                              value={countryCode}
+                              onChange={(e) => setCountryCode(e.target.value)}
+                              className="rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-2 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                              {countryCodes.map((c) => (
+                                <option key={c.code} value={c.code}>
+                                  {c.code} ({c.country})
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="tel"
+                              name="phoneNumber"
+                              value={formData.phoneNumber}
+                              onChange={handleInputChange}
+                              placeholder="9876543210"
+                              required
+                              className="block w-full rounded-r-md border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -753,42 +789,56 @@ const DeliveryTeamManagement = () => {
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Password *
                           </label>
-                          <input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleInputChange}
-                            placeholder="Minimum 6 characters"
-                            required
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
+                          <div className="relative">
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              name="password"
+                              value={formData.password}
+                              onChange={handleInputChange}
+                              placeholder="Minimum 6 characters"
+                              required
+                              className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                            >
+                              {showPassword ? (
+                                <EyeSlashIcon className="h-4 w-4" />
+                              ) : (
+                                <EyeIcon className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Mobile Number *
-                          </label>
-                          <input
-                            type="tel"
-                            name="mobileNumber"
-                            value={formData.mobileNumber}
-                            onChange={handleInputChange}
-                            placeholder="e.g., 9876543210"
-                            required
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Alternate Number
                           </label>
-                          <input
-                            type="tel"
-                            name="alternateNumber"
-                            value={formData.alternateNumber}
-                            onChange={handleInputChange}
-                            placeholder="Optional alternate contact"
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
+                          <div className="flex">
+                            <select
+                              value={countryCode}
+                              onChange={(e) => setCountryCode(e.target.value)}
+                              className="rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-2 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                              {countryCodes.map((c) => (
+                                <option key={c.code} value={c.code}>
+                                  {c.code} ({c.country})
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="tel"
+                              name="alternateNumber"
+                              value={formData.alternateNumber}
+                              onChange={handleInputChange}
+                              placeholder="Optional"
+                              className="block w-full rounded-r-md border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -862,10 +912,9 @@ const DeliveryTeamManagement = () => {
                             className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           >
                             <option value="">Select Type</option>
-                            <option value="motorcycle">Motorcycle</option>
-                            <option value="scooter">Scooter</option>
-                            <option value="bicycle">Bicycle</option>
-                            <option value="car">Car</option>
+                            <option value="two_wheeler">Two Wheeler (Bike/Scooter)</option>
+                            <option value="three_wheeler">Three Wheeler (Auto)</option>
+                            <option value="four_wheeler">Four Wheeler (Car/Van)</option>
                           </select>
                         </div>
                         <div>
@@ -1095,8 +1144,11 @@ const DeliveryTeamManagement = () => {
                               Document Verification Required
                             </h5>
                             <p className="text-xs text-red-700">
-                              All documents marked with <span className="text-red-600 font-semibold">*</span> are mandatory for registration. 
+                              All documents marked with <span className="text-red-600 font-semibold">*</span> are mandatory for registration.
                               The delivery person will be verified only after uploading Aadhar Card, PAN Card, and Driving License.
+                            </p>
+                            <p className="text-xs text-red-700 mt-1">
+                              <span className="font-semibold">Max file size:</span> 5MB per document | <span className="font-semibold">Formats:</span> JPG, PNG, PDF
                             </p>
                           </div>
                         </div>
@@ -1115,7 +1167,7 @@ const DeliveryTeamManagement = () => {
                             required
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                          <p className="text-xs text-gray-500 mt-1">Max size: 5MB | JPG, PNG, PDF</p>
                         </div>
 
                         <div>
@@ -1130,7 +1182,7 @@ const DeliveryTeamManagement = () => {
                             required
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                          <p className="text-xs text-gray-500 mt-1">Max size: 5MB | JPG, PNG, PDF</p>
                         </div>
 
                         <div>
@@ -1145,7 +1197,7 @@ const DeliveryTeamManagement = () => {
                             required
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                          <p className="text-xs text-gray-500 mt-1">Max size: 5MB | JPG, PNG, PDF</p>
                         </div>
 
                         <div>
@@ -1160,7 +1212,7 @@ const DeliveryTeamManagement = () => {
                             required
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                          <p className="text-xs text-gray-500 mt-1">Max size: 5MB | JPG, PNG, PDF</p>
                         </div>
 
                         <div>
@@ -1175,7 +1227,7 @@ const DeliveryTeamManagement = () => {
                             required
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                          <p className="text-xs text-gray-500 mt-1">Max size: 5MB | JPG, PNG, PDF</p>
                         </div>
 
                         <div>
@@ -1190,7 +1242,7 @@ const DeliveryTeamManagement = () => {
                             required
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                          <p className="text-xs text-gray-500 mt-1">Max size: 5MB | JPG, PNG only</p>
                         </div>
 
                         <div>
@@ -1205,7 +1257,7 @@ const DeliveryTeamManagement = () => {
                             required
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Required for verification</p>
+                          <p className="text-xs text-gray-500 mt-1">Max size: 5MB | JPG, PNG only</p>
                         </div>
                       </div>
                     </div>
