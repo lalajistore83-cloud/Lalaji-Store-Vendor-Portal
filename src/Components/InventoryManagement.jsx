@@ -328,10 +328,14 @@ const handleBulkUpdate = async () => {
             product.images?.[0]?.url || '';
 
           // Calculate unit price from analytics or product pricing
-          const unitPrice = vp.pricing?.sellingPrice ||
+          const unitPrice = Math.round(
+             vp.pricing?.breakdown?.totalAmount ||
+            product.pricing?.breakdown?.totalAmount ||
             product.pricing?.sellingPrice ||
             (vp.analytics?.totalRevenue && vp.analytics?.totalSold ?
-              Math.round(vp.analytics.totalRevenue / vp.analytics.totalSold) : 0);
+              vp.analytics.totalRevenue / vp.analytics.totalSold
+              : 0)
+            );
 
           // Format weight display
           const weightDisplay = product.weight?.value && product.weight?.unit
