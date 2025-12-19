@@ -120,6 +120,8 @@ const BillingManagement = () => {
   const [activeTab, setActiveTab] = useState('billing'); // 'billing' or 'history' or 'analytics'
   const [analyticsData, setAnalyticsData] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [discountError, setDiscountError] = useState("");
+
 
   useEffect(() => {
     // Check URL params for tab
@@ -849,26 +851,79 @@ const BillingManagement = () => {
 
               {/* Discount */}
               <div className="border-t border-gray-200 pt-2 mb-2">
-                <label className="block text-[10px] font-medium text-gray-700 mb-1.5">Discount</label>
+                <label className="block text-[10px] font-medium text-gray-700 mb-1.5">              
+                     Discount
+                </label>
+                            
                 <div className="flex gap-1.5">
                   <CustomDropdown
-                    value={discount.type}
-                    onChange={(value) => setDiscount({ ...discount, type: value })}
-                    options={[
-                      { value: 'none', label: 'None' },
-                      { value: 'percentage', label: '%' },
-                      { value: 'fixed', label: '₹' }
-                    ]}
-                    className="w-24"
+                    value={discount.type}              
+                    onChange={(value) => {
+                    setDiscount({ ...discount, type: value });
+                    setDiscountError("");
+                  }}
+                  options={[
+                    { value: "none", label: "None" },
+                    { value: "percentage", label: "%" },
+                    { value: "fixed", label: "₹" }
+                  ]}
+                  className="w-24"
                   />
-                  {discount.type !== 'none' && (
-                    <input
-                      type="number"
-                      value={discount.value}
-                      onChange={(e) => setDiscount({ ...discount, value: parseFloat(e.target.value) || 0 })}
-                      placeholder="Value"
-                      className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
-                    />
+              
+                  {discount.type !== "none" && (
+                    <div className="flex-1 flex flex-col">
+                      {/* INPUT */}
+                      <input
+                        type="number"
+                        value={discount.value}
+                        onFocus={(e) => {
+                          if (e.target.value === "0") {
+                            setDiscount({ ...discount, value: "" });
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === "" || e.target.value === null) {
+                            setDiscount({ ...discount, value: 0 });
+                          }
+                        }}
+                        onChange={(e) => {
+                          const rawVal = e.target.value;
+                        
+                          if (rawVal === "") {
+                            setDiscount({ ...discount, value: "" });
+                            return;
+                          }
+                        
+                          const val = Number(rawVal);
+                        
+                          if (val < 0) {
+                            setDiscountError("You cannot enter negative values.");
+                            setDiscount({ ...discount, value: 0 });
+                            return;
+                          }
+                        
+                          if (discount.type === "percentage" && val > 100) {
+                            setDiscountError("You cannot put discount over 100%.");
+                            setDiscount({ ...discount, value: 100 });
+                            return;
+                          }
+                        
+                          // ✅ valid
+                          setDiscountError("");
+                          setDiscount({ ...discount, value: val });
+                        }}
+                        placeholder="Discount Value"
+                        className={`w-full px-2 py-1 text-xs border rounded ${
+                          discountError ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+              
+                      {discountError && (
+                        <p className="text-red-500 text-[10px] mt-1">
+                          {discountError}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
