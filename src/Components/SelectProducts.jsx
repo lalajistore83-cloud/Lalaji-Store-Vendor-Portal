@@ -13,8 +13,7 @@ import {
   TrashIcon,
   Squares2X2Icon,
   TableCellsIcon,
-  EyeIcon,
-  EyeSlashIcon
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import { getAvailableProducts, selectProduct, removeProduct } from '../utils/product';
 import { getCategories, getSubcategories } from '../utils/category';
@@ -765,25 +764,25 @@ useEffect(() => {
             ) : (
               // Table View
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="w-full divide-y divide-gray-200 table-fixed">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[30%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Product
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Category
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Price (Inc. GST)
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Stock
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[12%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[10%] px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -854,16 +853,16 @@ useEffect(() => {
                         </td>
 
                         {/* Status */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-center">
                           {(product.isSelectedByVendor || selectedProducts.has(product._id)) ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <CheckCircleIcon className="h-3 w-3 mr-1" />
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
+                              <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
                               In Inventory
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              <EyeSlashIcon className="h-3 w-3 mr-1" />
-                              Available
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
+                              <ShoppingCartIcon className="h-3 w-3 mr-1 shrink-0" />
+                              Available to Add
                             </span>
                           )}
                         </td>

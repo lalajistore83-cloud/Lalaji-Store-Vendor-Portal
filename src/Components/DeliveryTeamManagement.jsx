@@ -5,12 +5,9 @@ import {
   MagnifyingGlassIcon,
   PhoneIcon,
   EnvelopeIcon,
-  MapPinIcon,
   CheckCircleIcon,
   XCircleIcon,
-  PencilIcon,
   TrashIcon,
-  TruckIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   DocumentTextIcon,
@@ -31,8 +28,6 @@ const DeliveryTeamManagement = () => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedDeliveryBoy, setSelectedDeliveryBoy] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [vendorDeliveryId, setVendorDeliveryId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -335,9 +330,8 @@ const DeliveryTeamManagement = () => {
       (member.phoneNumber || '').includes(searchTerm) ||
       (member.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'available' && member.deliveryBoyInfo?.isAvailable !== false && member.isActive) ||
-      (filterStatus === 'busy' && member.deliveryBoyInfo?.isAvailable === false) ||
+    const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'active' && member.isActive) ||
       (filterStatus === 'inactive' && !member.isActive);
     
     return matchesSearch && matchesStatus;
@@ -345,8 +339,7 @@ const DeliveryTeamManagement = () => {
 
   const teamStats = {
     total: deliveryTeam.length,
-    available: deliveryTeam.filter(m => m.deliveryBoyInfo?.isAvailable !== false && m.isActive).length,
-    busy: deliveryTeam.filter(m => m.deliveryBoyInfo?.isAvailable === false).length,
+    active: deliveryTeam.filter(m => m.isActive).length,
     inactive: deliveryTeam.filter(m => !m.isActive).length
   };
 
@@ -436,12 +429,12 @@ const DeliveryTeamManagement = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
-        <div 
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div
           onClick={() => setFilterStatus('all')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
-            filterStatus === 'all' 
-              ? 'border-blue-500 ' 
+            filterStatus === 'all'
+              ? 'border-blue-500 '
               : 'border-gray-200 hover:border-blue-300 hover:'
           }`}
         >
@@ -459,11 +452,11 @@ const DeliveryTeamManagement = () => {
             </div>
           </div>
         </div>
-        <div 
-          onClick={() => setFilterStatus(filterStatus === 'available' ? 'all' : 'available')}
+        <div
+          onClick={() => setFilterStatus(filterStatus === 'active' ? 'all' : 'active')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
-            filterStatus === 'available' 
-              ? 'border-green-500 ' 
+            filterStatus === 'active'
+              ? 'border-green-500 '
               : 'border-green-200 hover:border-green-300 hover:'
           }`}
         >
@@ -474,40 +467,18 @@ const DeliveryTeamManagement = () => {
               </div>
               <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">Available</dt>
-                  <dd className="text-lg font-semibold text-gray-900">{teamStats.available}</dd>
+                  <dt className="text-xs font-medium text-gray-500 truncate">Active</dt>
+                  <dd className="text-lg font-semibold text-gray-900">{teamStats.active}</dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
-        <div 
-          onClick={() => setFilterStatus(filterStatus === 'busy' ? 'all' : 'busy')}
-          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
-            filterStatus === 'busy' 
-              ? 'border-yellow-500 ' 
-              : 'border-yellow-200 hover:border-yellow-300 hover:'
-          }`}
-        >
-          <div className="p-4">
-            <div className="flex items-center">
-              <div className="shrink-0">
-                <TruckIcon className="h-6 w-6 text-yellow-600" />
-              </div>
-              <div className="ml-3 w-0 flex-1">
-                <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">On Delivery</dt>
-                  <dd className="text-lg font-semibold text-gray-900">{teamStats.busy}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div 
+        <div
           onClick={() => setFilterStatus(filterStatus === 'inactive' ? 'all' : 'inactive')}
           className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
-            filterStatus === 'inactive' 
-              ? 'border-gray-500 ' 
+            filterStatus === 'inactive'
+              ? 'border-gray-500 '
               : 'border-gray-200 hover:border-gray-300 hover:'
           }`}
         >
@@ -554,8 +525,7 @@ const DeliveryTeamManagement = () => {
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
-              <option value="available">Available</option>
-              <option value="busy">On Delivery</option>
+              <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
