@@ -767,22 +767,22 @@ useEffect(() => {
                 <table className="w-full divide-y divide-gray-200 table-fixed">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="w-[30%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[28%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Product
                       </th>
-                      <th className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[14%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Category
                       </th>
-                      <th className="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[10%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Price (Inc. GST)
                       </th>
-                      <th className="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[5%] px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Stock
                       </th>
-                      <th className="w-[12%] px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[16%] px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="w-[10%] px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="w-[6%] px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -791,14 +791,14 @@ useEffect(() => {
                     {paginatedProducts.map((product) => (
                       <tr key={product._id} className="hover:bg-gray-50">
                         {/* Product */}
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="flex items-center">
-                            <div className="h-12 w-12 shrink-0">
+                            <div className="h-10 w-10 shrink-0">
                               {getProductImage(product) ? (
                                 <img
                                   src={getProductImage(product)}
                                   alt={product.name}
-                                  className="h-12 w-12 rounded-lg object-cover"
+                                  className="h-10 w-10 rounded-lg object-cover"
                                   onError={(e) => {
                                     e.target.style.display = 'none';
                                     e.target.nextElementSibling.style.display = 'flex';
@@ -806,45 +806,45 @@ useEffect(() => {
                                 />
                               ) : null}
                               <div 
-                                className={`h-12 w-12 flex items-center justify-center bg-zinc-100 text-black rounded-lg ${
+                                className={`h-10 w-10 flex items-center justify-center bg-zinc-100 text-black rounded-lg ${
                                   getProductImage(product) ? 'hidden' : 'flex'
                                 }`}
                               >
-                                <span className="text-lg font-bold">
+                                <span className="text-sm font-bold">
                                   {getProductInitials(product.name)}
                                 </span>
                               </div>
                             </div>
                             <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-medium text-gray-900 line-clamp-1">
                                 {product.name}
                               </div>
                               {product.brand && (
-                                <div className="text-xs text-gray-500">{product.brand}</div>
+                                <div className="text-xs text-gray-500 line-clamp-1">{product.brand}</div>
                               )}
                             </div>
                           </div>
                         </td>
 
                         {/* Category */}
-                        <td className="px-4 py-3">
-                          <div className="text-sm text-gray-900">
+                        <td className="px-3 py-3">
+                          <div className="text-sm text-gray-900 line-clamp-1">
                             {product.category?.name || 'N/A'}
                           </div>
                           {product.subcategory?.name && (
-                            <div className="text-xs text-gray-500">{product.subcategory.name}</div>
+                            <div className="text-xs text-gray-500 line-clamp-1">{product.subcategory.name}</div>
                           )}
                         </td>
 
                         {/* Price */}
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="text-sm font-medium text-gray-900">
                             {formatPriceWithGST(product)}
                           </div>
                         </td>
 
                         {/* Stock */}
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 text-center">
                           <div className="text-sm text-gray-900">
                             {(product.isSelectedByVendor || selectedProducts.has(product._id))
                               ? (product.vendorStock ?? product.stock ?? '-')
@@ -853,61 +853,63 @@ useEffect(() => {
                         </td>
 
                         {/* Status */}
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-3 py-3 text-center">
                           {(product.isSelectedByVendor || selectedProducts.has(product._id)) ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
                               <CheckCircleIcon className="h-3 w-3 mr-1 shrink-0" />
                               In Inventory
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
                               <ShoppingCartIcon className="h-3 w-3 mr-1 shrink-0" />
-                              Available to Add
+                              Available
                             </span>
                           )}
                         </td>
 
                         {/* Actions */}
-                        <td className="px-4 py-3 text-right">
-                          {(product.isSelectedByVendor || selectedProducts.has(product._id)) ? (
-                            <button
-                              onClick={() => openRemoveModal(product)}
-                              disabled={removingProduct === product._id}
-                              className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Remove from inventory"
-                            >
-                              {removingProduct === product._id ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-700"></div>
-                              ) : (
-                                <>
-                                  <TrashIcon className="h-3 w-3 mr-1" />
-                                  Remove
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => openSelectionModal(product)}
-                              disabled={selectingProduct === product._id}
-                              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md transition-colors duration-200 ${
-                                selectingProduct === product._id
-                                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                                  : 'bg-blue-600 text-white hover:bg-blue-700'
-                              }`}
-                            >
-                              {selectingProduct === product._id ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                                  Adding...
-                                </>
-                              ) : (
-                                <>
-                                  <ShoppingCartIcon className="h-3 w-3 mr-1" />
-                                  Add
-                                </>
-                              )}
-                            </button>
-                          )}
+                        <td className="px-3 py-3 text-center">
+                          <div className="flex justify-center items-center">
+                            {(product.isSelectedByVendor || selectedProducts.has(product._id)) ? (
+                              <button
+                                onClick={() => openRemoveModal(product)}
+                                disabled={removingProduct === product._id}
+                                className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Remove from inventory"
+                              >
+                                {removingProduct === product._id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-700"></div>
+                                ) : (
+                                  <>
+                                    <TrashIcon className="h-3 w-3 mr-1" />
+                                    Remove
+                                  </>
+                                )}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => openSelectionModal(product)}
+                                disabled={selectingProduct === product._id}
+                                className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md transition-colors duration-200 ${
+                                  selectingProduct === product._id
+                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
+                              >
+                                {selectingProduct === product._id ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                                    Adding...
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShoppingCartIcon className="h-3 w-3 mr-1" />
+                                    Add
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
