@@ -16,6 +16,8 @@ import {
 } from '@mui/x-charts';
 import { getAnalytics } from '../utils/api';
 
+
+
 const Analytics = () => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
