@@ -122,7 +122,7 @@ const ExportReport = ({
         <th>Delivery Address</th>
         <th>Items Count</th>
         <th>Items Details</th>
-        <th>Total Amount (₹)</th>
+        <th>Total Amount (&#8377;)</th>
         <th>Order Status</th>
         <th>Payment Status</th>
         <th>Payment Method</th>
@@ -143,7 +143,7 @@ const ExportReport = ({
         <td>${order.address}</td>
         <td>${order.items.length}</td>
         <td>${order.items.map(item => `${item.name} x${item.quantity}`).join(', ')}</td>
-        <td style="text-align: right;">₹${order.totalAmount.toLocaleString()}</td>
+        <td style="text-align: right;">&#8377;${order.totalAmount.toLocaleString()}</td>
         <td>${order.status.charAt(0).toUpperCase() + order.status.slice(1)}</td>
         <td>${order.paymentStatus}</td>
         <td>${order.rawOrder?.payment?.method?.toUpperCase() || 'COD'}</td>
@@ -158,7 +158,7 @@ const ExportReport = ({
     const summaryRow = `
       <tr style="background-color: #E5E7EB; font-weight: bold;">
         <td colspan="9">Total Orders: ${filteredOrders.length}</td>
-        <td style="text-align: right;">₹${orderStats.totalRevenue.toLocaleString()}</td>
+        <td style="text-align: right;">&#8377;${orderStats.totalRevenue.toLocaleString()}</td>
         <td colspan="6">Pending: ${orderStats.pending} | Delivered: ${orderStats.delivered}</td>
       </tr>
     `;
@@ -167,6 +167,7 @@ const ExportReport = ({
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
       <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
         <!--[if gte mso 9]>
         <xml>
           <x:ExcelWorkbook>
@@ -198,7 +199,7 @@ const ExportReport = ({
       </html>
     `;
 
-    downloadFile(html, `${filename}.xls`, 'application/vnd.ms-excel');
+    downloadFile(html, `${filename}.xls`, 'application/vnd.ms-excel;charset=utf-8');
   };
 
   // Export to PDF (using browser print functionality with styled HTML)
