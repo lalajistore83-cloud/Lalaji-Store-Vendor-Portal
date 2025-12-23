@@ -1307,28 +1307,28 @@ const lowStockCount = products.filter(p => {
         /* List View - Table - Super Compact */
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-[25%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Product
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-[13%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Category
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-[10%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Price
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-[8%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Stock
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-[10%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-[10%] px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                     Approval
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-[5%] px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">
                     Actions
                   </th>
                 </tr>
@@ -1423,17 +1423,17 @@ const lowStockCount = products.filter(p => {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-right text-xs font-medium">
-                      <div className="flex justify-end space-x-1.5">
+                    <td className="px-3 py-2 whitespace-nowrap text-center text-xs font-medium">
+                      <div className="flex justify-center items-center space-x-1.5">
                         <button
                           onClick={() => handleView(vendorProduct)}
-                          className="text-gray-600 hover:text-gray-900"
+                          className="text-gray-600 hover:text-gray-900 inline-flex items-center justify-center"
                           title="View Details"
                         >
                           <EyeIcon className="h-3.5 w-3.5" />
                         </button>
                         {isPendingVerification && (
-                          <button className="text-blue-600 hover:text-blue-900" title="Edit Draft">
+                          <button className="text-blue-600 hover:text-blue-900 inline-flex items-center justify-center" title="Edit Draft">
                             <PencilIcon className="h-3.5 w-3.5" />
                           </button>
                         )}
