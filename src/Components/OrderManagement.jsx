@@ -15,13 +15,13 @@ import {
   ChevronDownIcon,
   ShoppingBagIcon,
   ArrowPathIcon,
-  DocumentArrowDownIcon,
   ExclamationTriangleIcon,
   WifiIcon
 } from '@heroicons/react/24/outline';
 import { getOrders, updateOrderStatus, getVendorProfile, getAvailableDeliveryBoys, assignDeliveryBoy, getAllDeliveryTeam } from '../utils/api';
 import notificationService from '../utils/notificationService';
 import OrderNotificationPopup from './OrderNotificationPopup';
+import ExportReport from './ui/OrderExportReport';
 
 const OrderManagement = () => {
   const [orders, setOrders] = useState([]);
@@ -614,10 +614,15 @@ const OrderManagement = () => {
             />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
-          <button className="inline-flex items-center rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-            <DocumentArrowDownIcon className="h-3.5 w-3.5 mr-1.5" />
-            Export Report
-          </button>
+          <ExportReport 
+            filteredOrders={filteredOrders}
+            orderStats={orderStats}
+            filterDate={filterDate}
+            customDateRange={customDateRange}
+            formatDate={formatDate}
+            onSuccess={(msg) => { setSuccessMessage(msg); setTimeout(() => setSuccessMessage(null), 3000); }}
+            onError={(msg) => { setError(msg); setTimeout(() => setError(null), 5000); }}
+          />
         </div>
       </div>
 
