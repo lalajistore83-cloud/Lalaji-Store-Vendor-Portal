@@ -1200,13 +1200,13 @@ const OrderManagement = () => {
                       {getPaymentStatusBadge(order.paymentStatus)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-center gap-2 flex-wrap">
+                      <div className="flex flex-col items-center justify-center gap-2">
                         <button
                           onClick={() => {
                             setSelectedOrder(order);
                             setShowOrderDetails(true);
                           }}
-                          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
+                          className="inline-flex items-center w-48 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
                         >
                           <EyeIcon className="h-3.5 w-3.5 mr-1" />
                           View Details
@@ -1222,7 +1222,7 @@ const OrderManagement = () => {
                               await fetchAvailableDeliveryBoys();
                               setShowAssignDelivery(true);
                             }}
-                            className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-purple-600 border border-purple-700 rounded hover:bg-purple-700"
+                            className="inline-flex items-center w-48 px-2.5 py-1.5 text-xs font-medium text-white bg-purple-600 border border-purple-700 rounded hover:bg-purple-700"
                           >
                             <UserIcon className="h-3.5 w-3.5 mr-1" />
                             Assign Delivery
@@ -1237,7 +1237,7 @@ const OrderManagement = () => {
                                 e.target.value = '';
                               }
                             }}
-                            className="text-xs border-gray-300 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="text-xs border-gray-300 rounded w-48 px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
                           >
                             <option value="">Update Status</option>
                             <option value="confirmed">Confirm Order</option>
@@ -1252,7 +1252,7 @@ const OrderManagement = () => {
                                 e.target.value = '';
                               }
                             }}
-                            className="text-xs border-gray-300 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="text-xs border-gray-300 rounded w-48 px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
                           >
                             <option value="">Update Status</option>
                             <option value="processing">Start Processing</option>
@@ -1267,7 +1267,7 @@ const OrderManagement = () => {
                                 e.target.value = '';
                               }
                             }}
-                            className="text-xs border-gray-300 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="text-xs border-gray-300 rounded w-48 px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
                           >
                             <option value="">Update Status</option>
                             <option value="packed">Mark as Packed</option>
@@ -1275,19 +1275,19 @@ const OrderManagement = () => {
                           </select>
                         )}
                         {order.status === 'packed' && (
-                          <div className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded">
+                          <div className="inline-flex items-center w-48 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded">
                             <TruckIcon className="h-3.5 w-3.5 mr-1" />
                             Waiting for Delivery Pickup
                           </div>
                         )}
                         {order.status === 'shipped' && (
-                          <div className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded">
+                          <div className="inline-flex items-center w-48 px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded">
                             <TruckIcon className="h-3.5 w-3.5 mr-1" />
                             In Transit
                           </div>
                         )}
                         {order.status === 'out_for_delivery' && (
-                          <div className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded">
+                          <div className="inline-flex items-center w-48 px-2.5 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded">
                             <TruckIcon className="h-3.5 w-3.5 mr-1" />
                             Out for Delivery
                           </div>
