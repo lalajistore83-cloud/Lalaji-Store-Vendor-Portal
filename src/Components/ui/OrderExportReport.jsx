@@ -64,6 +64,24 @@ const ExportReport = ({
     }
   };
 
+  // Helper function to escape CSV values
+  const escapeCSVValue = (value) => {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    // If value contains comma, newline, or double quote, wrap in quotes and escape internal quotes
+    if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  // Format phone number for CSV (preserve as text)
+  const formatPhoneForCSV = (phone) => {
+    if (!phone || phone === 'N/A') return 'N/A';
+    // Add tab character to force Excel to treat as text
+    return `\t${phone}`;
+  };
+
   // Export to CSV
   const exportToCSV = (filename) => {
     const headers = [
@@ -85,28 +103,48 @@ const ExportReport = ({
       'Delivery Phone'
     ];
 
-    const rows = filteredOrders.map(order => [
-      order.id,
-      order.orderNumber || order.id,
-      formatDate(order.orderDate),
-      order.customer.name,
-      order.customer.phone,
-      order.customer.email || 'N/A',
-      `"${order.address.replace(/"/g, '""')}"`,
-      order.items.length,
-      `"${order.items.map(item => `${item.name} x${item.quantity}`).join(', ')}"`,
-      order.totalAmount,
-      order.status,
-      order.paymentStatus,
-      order.rawOrder?.payment?.method || 'COD',
-      order.delivery?.partner === 'lalaji_network' ? 'Lalaji Network' : 
-        order.delivery?.partner === 'vendor_self' ? 'Self Delivery' : 'Not Assigned',
-      order.delivery?.deliveryBoyName || 'Not Assigned',
-      order.delivery?.deliveryBoyPhone || 'N/A'
-    ]);
+    const rows = filteredOrders.map(order => {
+      const customerPhone = order.customer.phone || 'N/A';
+      const deliveryPhone = order.delivery?.deliveryBoyPhone || 'N/A';
+      const deliveryPartner = order.delivery?.partner === 'lalaji_network' ? 'Lalaji Network' : 
+        order.delivery?.partner === 'vendor_self' ? 'Self Delivery' : 'Not Assigned';
+      const itemsDetails = order.items.map(item => `${item.name} x${item.quantity}`).join('; ');
+      
+      // Format date consistently for CSV
+      const orderDateFormatted = order.orderDate ? 
+        new Date(order.orderDate).toLocaleString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }) : 'N/A';
+      
+      return [
+        escapeCSVValue(order.id),
+        escapeCSVValue(order.orderNumber || order.id),
+        `"${orderDateFormatted}"`,
+        escapeCSVValue(order.customer.name || ''),
+        formatPhoneForCSV(customerPhone),
+        escapeCSVValue(order.customer.email || 'N/A'),
+        escapeCSVValue(order.address || ''),
+        order.items.length,
+        escapeCSVValue(itemsDetails),
+        order.totalAmount,
+        escapeCSVValue(order.status),
+        escapeCSVValue(order.paymentStatus),
+        escapeCSVValue(order.rawOrder?.payment?.method || 'COD'),
+        escapeCSVValue(deliveryPartner),
+        escapeCSVValue(order.delivery?.deliveryBoyName || 'Not Assigned'),
+        formatPhoneForCSV(deliveryPhone)
+      ];
+    });
 
     const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-    downloadFile(csvContent, `${filename}.csv`, 'text/csv;charset=utf-8;');
+    // Add BOM for Excel to recognize UTF-8
+    const BOM = '\uFEFF';
+    downloadFile(BOM + csvContent, `${filename}.csv`, 'text/csv;charset=utf-8;');
   };
 
   // Export to Excel (using HTML table format that Excel can read)
@@ -138,7 +176,7 @@ const ExportReport = ({
         <td>${order.orderNumber || order.id}</td>
         <td>${formatDate(order.orderDate)}</td>
         <td>${order.customer.name}</td>
-        <td>${order.customer.phone}</td>
+        <td style="mso-number-format:'\@';">${order.customer.phone || 'N/A'}</td>
         <td>${order.customer.email || 'N/A'}</td>
         <td>${order.address}</td>
         <td>${order.items.length}</td>
@@ -150,7 +188,7 @@ const ExportReport = ({
         <td>${order.delivery?.partner === 'lalaji_network' ? 'Lalaji Network' : 
               order.delivery?.partner === 'vendor_self' ? 'Self Delivery' : 'Not Assigned'}</td>
         <td>${order.delivery?.deliveryBoyName || 'Not Assigned'}</td>
-        <td>${order.delivery?.deliveryBoyPhone || 'N/A'}</td>
+        <td style="mso-number-format:'\@';">${order.delivery?.deliveryBoyPhone || 'N/A'}</td>
       </tr>
     `).join('');
 
