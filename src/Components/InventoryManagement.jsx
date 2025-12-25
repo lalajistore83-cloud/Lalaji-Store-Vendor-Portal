@@ -15,6 +15,7 @@ import {
   PhotoIcon
 } from '@heroicons/react/24/outline';
 import { getVendorProducts, updateVendorProductStock, createVendorProduct, getCategories, bulkUpdateVendorProductStock } from '../utils/api';
+import InventoryExportReport from './ui/InventoryExportReport';
 
 const InventoryManagement = () => {
   const [activeTab, setActiveTab] = useState('lalaji'); // 'lalaji' or 'own'
@@ -602,9 +603,18 @@ const handleBulkUpdate = async () => {
               Add Store Products
             </button>
           )}
-          <button className="inline-flex items-center rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-            Export Report
-          </button>
+          <InventoryExportReport
+            inventory={filteredInventory}
+            inventoryStats={inventoryStats}
+            onSuccess={(message) => {
+              setSuccessMessage(message);
+              setTimeout(() => setSuccessMessage(null), 3000);
+            }}
+            onError={(message) => {
+              setError(message);
+              setTimeout(() => setError(null), 3000);
+            }}
+          />
           <div className="relative group">
             <button
               onClick={() => setShowBulkUpdateModal(true)}
