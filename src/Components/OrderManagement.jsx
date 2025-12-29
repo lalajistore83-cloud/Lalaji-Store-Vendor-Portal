@@ -687,7 +687,7 @@ const OrderManagement = () => {
               </div>
               <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">In Progress</dt>
+                  <dt className="text-xs font-medium text-gray-500 truncate">Processing</dt>
                   <dd className="text-base font-semibold text-gray-900">{orderStats.processing}</dd>
                 </dl>
               </div>

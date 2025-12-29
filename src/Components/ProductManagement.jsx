@@ -899,7 +899,7 @@ const lowStockCount = products.filter(p => {
   // Reset to page 1 when search or filters change
   const handleSearchChange = (value) => {
     setSearchTerm(value);
-    setCurrentPage(1);
+    
   };
 
   const handleStatusChange = (value) => {
@@ -1074,15 +1074,6 @@ const lowStockCount = products.filter(p => {
     </span>
   );
 };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
       {/* Header - Super Compact */}
@@ -1731,7 +1722,7 @@ const lowStockCount = products.filter(p => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const randomSKU = `SKU-${Date.now().toString().slice(-6)}`;
+                                  const randomSKU = `SKU-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
                                   setFormData({...formData, sku: randomSKU});
                                 }}
                                 className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"

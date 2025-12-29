@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -12,57 +12,66 @@ import {
   ArchiveBoxIcon,
   ChevronDownIcon,
   XMarkIcon,
-  PhotoIcon
-} from '@heroicons/react/24/outline';
-import { getVendorProducts, updateVendorProductStock, createVendorProduct, getCategories, bulkUpdateVendorProductStock } from '../utils/api';
-import InventoryExportReport from './ui/InventoryExportReport';
+  PhotoIcon,
+} from "@heroicons/react/24/outline";
+import {
+  getVendorProducts,
+  updateVendorProductStock,
+  createVendorProduct,
+  getCategories,
+  bulkUpdateVendorProductStock,
+} from "../utils/api";
+import InventoryExportReport from "./ui/InventoryExportReport";
 
 const InventoryManagement = () => {
-  const [activeTab, setActiveTab] = useState('lalaji'); // 'lalaji' or 'own'
+  const [activeTab, setActiveTab] = useState("lalaji"); // 'lalaji' or 'own'
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterStock, setFilterStock] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterStock, setFilterStock] = useState("all");
   const [editingProductId, setEditingProductId] = useState(null);
   const [editValues, setEditValues] = useState({
-    quantity: '',
-    operation: 'add'
+    quantity: "",
+    operation: "add",
   });
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
-  const [bulkOperation, setBulkOperation] = useState('add');
-  const [bulkQuantity, setBulkQuantity] = useState('');
+  const [bulkOperation, setBulkOperation] = useState("add");
+  const [bulkQuantity, setBulkQuantity] = useState("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [individualQuantities, setIndividualQuantities] = useState({});
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [addingProduct, setAddingProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
-    name: '',
-    description: '',
-    shortDescription: '',
-    category: '',
-    subcategory: '',
-    brand: '',
-    basePrice: '',
-    weight: '',
-    unit: 'kg',
+    name: "",
+    description: "",
+    shortDescription: "",
+    category: "",
+    subcategory: "",
+    brand: "",
+    basePrice: "",
+    weight: "",
+    unit: "kg",
+    sku: "",
     initialStock: 0,
     lowStockThreshold: 10,
-    images: []
+    images: [],
   });
 
   const categoryDropdownRef = useRef(null);
   const fileInputRef = useRef(null);
 
   // Get unique categories from inventory
-  const inventoryCategories = [...new Set(inventory.map(item => item.category).filter(Boolean))];
+  const inventoryCategories = [
+    ...new Set(inventory.map((item) => item.category).filter(Boolean)),
+  ];
 
   useEffect(() => {
     fetchInventory();
@@ -72,14 +81,17 @@ const InventoryManagement = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target)
+      ) {
         setCategoryDropdownOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -90,20 +102,20 @@ const InventoryManagement = () => {
         setCategories(response.data || []);
       }
     } catch (err) {
-      console.error('Error fetching categories:', err);
+      console.error("Error fetching categories:", err);
     }
   };
 
   const handleCategoryChange = (categoryId) => {
-    setNewProduct({ ...newProduct, category: categoryId, subcategory: '' });
-    const selectedCategory = categories.find(cat => cat._id === categoryId);
+    setNewProduct({ ...newProduct, category: categoryId, subcategory: "" });
+    const selectedCategory = categories.find((cat) => cat._id === categoryId);
     setSubcategories(selectedCategory?.subcategories || []);
   };
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
     if (files.length + newProduct.images.length > 4) {
-      setError('Maximum 4 images allowed');
+      setError("Maximum 4 images allowed");
       return;
     }
     setNewProduct({ ...newProduct, images: [...newProduct.images, ...files] });
@@ -128,174 +140,211 @@ const InventoryManagement = () => {
     if (selectedProducts.size === filteredInventory.length) {
       setSelectedProducts(new Set());
     } else {
-      setSelectedProducts(new Set(filteredInventory.map(item => item.vendorProductId)));
+      setSelectedProducts(
+        new Set(filteredInventory.map((item) => item.vendorProductId))
+      );
     }
   };
 
-const handleBulkUpdate = async () => {
-  try {
-    setBulkUpdating(true);
-    setError(null);
+  const handleBulkUpdate = async () => {
+    try {
+      setBulkUpdating(true);
+      setError(null);
 
-    if (selectedProducts.size === 0) {
-      setError('Please select at least one product');
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
-
-    const MAX_STOCK_LIMIT = 500;
-
-    // Validate each selected product BEFORE sending update
-    for (const vendorProductId of selectedProducts) {
-      const product = inventory.find(item => item.vendorProductId === vendorProductId);
-      const quantity = parseInt(individualQuantities[vendorProductId] || bulkQuantity);
-
-      if (!quantity || quantity <= 0) {
-        setError("Please enter valid quantities for all products");
+      if (selectedProducts.size === 0) {
+        setError("Please select at least one product");
         setTimeout(() => setError(null), 3000);
         return;
       }
 
-      // ADD restriction – must not exceed max limit
-      if (bulkOperation === "add") {
-        if (product.currentStock + quantity > MAX_STOCK_LIMIT) {
-          setError(
-            `Cannot add ${quantity} units to "${product.name}". 
+      const MAX_STOCK_LIMIT = 500;
+
+      // Validate each selected product BEFORE sending update
+      for (const vendorProductId of selectedProducts) {
+        const product = inventory.find(
+          (item) => item.vendorProductId === vendorProductId
+        );
+        const quantity = parseInt(
+          individualQuantities[vendorProductId] || bulkQuantity
+        );
+
+        if (!quantity || quantity <= 0) {
+          setError("Please enter valid quantities for all products");
+          setTimeout(() => setError(null), 3000);
+          return;
+        }
+
+        // ADD restriction – must not exceed max limit
+        if (bulkOperation === "add") {
+          if (product.currentStock + quantity > MAX_STOCK_LIMIT) {
+            setError(
+              `Cannot add ${quantity} units to "${product.name}". 
              Max stock allowed is ${MAX_STOCK_LIMIT}. Current stock: ${product.currentStock}.`
-          );
-          setTimeout(() => setError(null), 3000);
-          return;
+            );
+            setTimeout(() => setError(null), 3000);
+            return;
+          }
         }
-      }
 
-      // SUBTRACT restriction – cannot remove more than current
-      if (bulkOperation === "subtract") {
-        if (quantity > product.currentStock) {
-          setError(
-            `Cannot remove ${quantity} units from "${product.name}". 
+        // SUBTRACT restriction – cannot remove more than current
+        if (bulkOperation === "subtract") {
+          if (quantity > product.currentStock) {
+            setError(
+              `Cannot remove ${quantity} units from "${product.name}". 
              Only ${product.currentStock} units available.`
-          );
-          setTimeout(() => setError(null), 3000);
-          return;
+            );
+            setTimeout(() => setError(null), 3000);
+            return;
+          }
         }
-      }
 
-      // SET restriction – must not exceed max limit
-      if (bulkOperation === "set") {
-        if (quantity > MAX_STOCK_LIMIT) {
-          setError(
-            `Cannot set stock of "${product.name}" to ${quantity}. 
+        // SET restriction – must not exceed max limit
+        if (bulkOperation === "set") {
+          if (quantity > MAX_STOCK_LIMIT) {
+            setError(
+              `Cannot set stock of "${product.name}" to ${quantity}. 
              Max allowed is ${MAX_STOCK_LIMIT}.`
-          );
-          setTimeout(() => setError(null), 3000);
-          return;
+            );
+            setTimeout(() => setError(null), 3000);
+            return;
+          }
         }
       }
-    }
 
-    // Prepare payload after validation
-    const updates = Array.from(selectedProducts).map(vendorProductId => {
-      const quantity = parseInt(individualQuantities[vendorProductId] || bulkQuantity);
-      return {
-        vendorProductId,
-        operation: bulkOperation,
-        quantity
-      };
-    });
-
-    // Call backend API
-    const response = await bulkUpdateVendorProductStock(updates);
-
-    if (response.success) {
-      setSuccessMessage(
-        `Bulk update completed! ${response.data.successful.length} products updated successfully.`
-      );
-      setTimeout(() => setSuccessMessage(null), 3000);
-
-      setShowBulkUpdateModal(false);
-      setSelectedProducts(new Set());
-      setBulkQuantity('');
-      setIndividualQuantities({});
-      fetchInventory(true);
-    } else {
-      setError(response.message || "Some updates failed");
-      setTimeout(() => setError(null), 3000);
-    }
-
-  } catch (err) {
-    console.error("Error bulk updating:", err);
-    setError(err.message || "Failed to bulk update products");
-    setTimeout(() => setError(null), 3000);
-  } finally {
-    setBulkUpdating(false);
-  }
-};
-
-  const handleAddProduct = async () => {
-    try {
-      setAddingProduct(true);
-      setError(null);
-
-      // Validation
-      if (!newProduct.name || !newProduct.description || !newProduct.category ||
-        !newProduct.subcategory || !newProduct.brand || !newProduct.basePrice ||
-        !newProduct.weight || !newProduct.unit) {
-        setError('Please fill all required fields');
-        return;
-      }
-
-      if (newProduct.images.length === 0) {
-        setError('Please add at least one product image');
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('name', newProduct.name);
-      formData.append('description', newProduct.description);
-      formData.append('shortDescription', newProduct.shortDescription);
-      formData.append('category', newProduct.category);
-      formData.append('subcategory', newProduct.subcategory);
-      formData.append('brand', newProduct.brand);
-      formData.append('basePrice', newProduct.basePrice);
-      formData.append('weight', newProduct.weight);
-      formData.append('unit', newProduct.unit);
-      formData.append('initialStock', newProduct.initialStock);
-      formData.append('lowStockThreshold', newProduct.lowStockThreshold);
-
-      // Add images
-      newProduct.images.forEach((image, index) => {
-        formData.append('images', image);
-        if (index === 0) formData.append('primaryImageIndex', '0');
+      // Prepare payload after validation
+      const updates = Array.from(selectedProducts).map((vendorProductId) => {
+        const quantity = parseInt(
+          individualQuantities[vendorProductId] || bulkQuantity
+        );
+        return {
+          vendorProductId,
+          operation: bulkOperation,
+          quantity,
+        };
       });
 
-      const response = await createVendorProduct(formData);
+      // Call backend API
+      const response = await bulkUpdateVendorProductStock(updates);
 
       if (response.success) {
-        setSuccessMessage('Product added successfully to your inventory! You can now manage its stock.');
-        setShowAddProductModal(false);
-        setNewProduct({
-          name: '',
-          description: '',
-          shortDescription: '',
-          category: '',
-          subcategory: '',
-          brand: '',
-          basePrice: '',
-          weight: '',
-          unit: 'kg',
-          initialStock: 0,
-          lowStockThreshold: 10,
-          images: []
-        });
-        fetchInventory();
+        setSuccessMessage(
+          `Bulk update completed! ${response.data.successful.length} products updated successfully.`
+        );
+        setTimeout(() => setSuccessMessage(null), 3000);
+
+        setShowBulkUpdateModal(false);
+        setSelectedProducts(new Set());
+        setBulkQuantity("");
+        setIndividualQuantities({});
+        fetchInventory(true);
+      } else {
+        setError(response.message || "Some updates failed");
+        setTimeout(() => setError(null), 3000);
       }
     } catch (err) {
-      console.error('Error adding product:', err);
-      setError(err.message || 'Failed to add product');
+      console.error("Error bulk updating:", err);
+      setError(err.message || "Failed to bulk update products");
+      setTimeout(() => setError(null), 3000);
     } finally {
-      setAddingProduct(false);
+      setBulkUpdating(false);
     }
   };
+
+const handleAddProduct = async () => {
+  try {
+    setAddingProduct(true);
+    setError(null);
+
+    // ✅ Validation aligned with backend
+    if (
+      !newProduct.name ||
+      !newProduct.description ||
+      !newProduct.category ||
+      !newProduct.subcategory ||
+      !newProduct.brand ||
+      !newProduct.basePrice ||
+      !newProduct.weight ||
+      !newProduct.unit
+    ) {
+      setError("Please fill all required fields");
+      return;
+    }
+
+    if (!newProduct.images || newProduct.images.length === 0) {
+      setError("Please add at least one product image");
+      return;
+    }
+
+    const formData = new FormData();
+
+    // 🔹 Product fields (NO SKU from frontend)
+    formData.append("name", newProduct.name);
+    formData.append("description", newProduct.description);
+    formData.append(
+      "shortDescription",
+      newProduct.shortDescription || ""
+    );
+    formData.append("category", newProduct.category);
+    formData.append("subcategory", newProduct.subcategory);
+    formData.append("brand", newProduct.brand);
+    formData.append("basePrice", String(newProduct.basePrice));
+    formData.append("weight", String(newProduct.weight));
+    formData.append("unit", newProduct.unit);
+
+    // 🔹 Inventory
+    formData.append(
+      "initialStock",
+      String(newProduct.initialStock ?? 0)
+    );
+    formData.append(
+      "lowStockThreshold",
+      String(newProduct.lowStockThreshold ?? 10)
+    );
+
+    // 🔹 Images
+    formData.append("primaryImageIndex", "0");
+    newProduct.images.forEach((image) => {
+      formData.append("images", image);
+    });
+
+    const response = await createVendorProduct(formData);
+
+    if (response?.success) {
+      setSuccessMessage(
+        "Product added successfully to your inventory! You can now manage its stock."
+      );
+
+      setShowAddProductModal(false);
+
+      // ✅ Reset state
+      setNewProduct({
+        name: "",
+        description: "",
+        shortDescription: "",
+        category: "",
+        subcategory: "",
+        brand: "",
+        basePrice: "",
+        weight: "",
+        unit: "kg",
+        initialStock: 0,
+        lowStockThreshold: 10,
+        images: [],
+      });
+
+      fetchInventory();
+    }
+  } catch (err) {
+    console.error("Error adding product:", err);
+    setError(
+      err?.response?.data?.message ||
+        err.message ||
+        "Failed to add product"
+    );
+  } finally {
+    setAddingProduct(false);
+  }
+};
 
   const fetchInventory = async (isRefresh = false) => {
     try {
@@ -309,79 +358,95 @@ const handleBulkUpdate = async () => {
       // For 'lalaji' tab, get only Lalaji Store products (where vendor selected them)
       // For 'own' tab, get vendor's own created products
       const response = await getVendorProducts({
-        sourceFilter: activeTab === 'lalaji' ? 'selected' : 'own'
+        sourceFilter: activeTab === "lalaji" ? "selected" : "own",
       });
 
-      console.log('Vendor Products Response:', response);
+      console.log("Vendor Products Response:", response);
 
       // Handle both response formats: direct array or response.data
-      const productsData = Array.isArray(response) ? response : (response.success && response.data ? response.data : []);
+      const productsData = Array.isArray(response)
+        ? response
+        : response.success && response.data
+        ? response.data
+        : [];
 
       if (productsData && productsData.length > 0) {
         // Transform vendor products to inventory format
-        const inventoryData = productsData.map(vp => {
+        const inventoryData = productsData.map((vp) => {
           const product = vp.product;
           const currentStock = vp.inventory?.stock || 0;
           const minThreshold = vp.inventory?.lowStockThreshold || 10;
 
           // Get primary image
-          const primaryImage = product.images?.find(img => img.isPrimary)?.url ||
-            product.images?.[0]?.url || '';
+          const primaryImage =
+            product.images?.find((img) => img.isPrimary)?.url ||
+            product.images?.[0]?.url ||
+            "";
 
           // Calculate unit price from analytics or product pricing
           const unitPrice = Math.round(
-             vp.pricing?.breakdown?.totalAmount ||
-            product.pricing?.breakdown?.totalAmount ||
-            product.pricing?.sellingPrice ||
-            (vp.analytics?.totalRevenue && vp.analytics?.totalSold ?
-              vp.analytics.totalRevenue / vp.analytics.totalSold
-              : 0)
-            );
+            vp.pricing?.breakdown?.totalAmount ||
+              product.pricing?.breakdown?.totalAmount ||
+              product.pricing?.sellingPrice ||
+              (vp.analytics?.totalRevenue && vp.analytics?.totalSold
+                ? vp.analytics.totalRevenue / vp.analytics.totalSold
+                : 0)
+          );
 
           // Format weight display
-          const weightDisplay = product.weight?.value && product.weight?.unit
-            ? `${product.weight.value}${product.weight.unit}`
-            : (product.weight && product.unit ? `${product.weight}${product.unit}` : '');
+          const weightDisplay =
+            product.weight?.value && product.weight?.unit
+              ? `${product.weight.value}${product.weight.unit}`
+              : product.weight && product.unit
+              ? `${product.weight}${product.unit}`
+              : "";
 
           return {
             id: vp._id,
             vendorProductId: vp._id,
             productId: product._id,
-            name: product.name || 'Unknown Product',
-            sku: product.sku || 'N/A',
-            category: product.category?.name || product.category || 'Uncategorized',
-            subcategory: product.subcategory?.name || product.subcategory || '',
-            brand: product.brand || 'N/A',
+            name: product.name || "Unknown Product",
+            sku: product.sku || "N/A",
+            category:
+              product.category?.name || product.category || "Uncategorized",
+            subcategory: product.subcategory?.name || product.subcategory || "",
+            brand: product.brand || "N/A",
             currentStock: currentStock,
             minThreshold: minThreshold,
             maxCapacity: vp.inventory?.maxCapacity || 500,
             unitPrice: unitPrice,
             totalValue: currentStock * unitPrice,
-            lastRestocked: vp.inventory?.lastRestocked || vp.updatedAt || vp.createdAt,
-            status: vp.status === 'out_of_stock' ? 'out_of_stock' :
-              (currentStock === 0 ? 'out_of_stock' :
-                currentStock <= minThreshold ? 'low_stock' : 'in_stock'),
-            location: vp.inventory?.location || 'Warehouse',
-            supplier: product.supplier || product.brand || 'N/A',
+            lastRestocked:
+              vp.inventory?.lastRestocked || vp.updatedAt || vp.createdAt,
+            status:
+              vp.status === "out_of_stock"
+                ? "out_of_stock"
+                : currentStock === 0
+                ? "out_of_stock"
+                : currentStock <= minThreshold
+                ? "low_stock"
+                : "in_stock",
+            location: vp.inventory?.location || "Warehouse",
+            supplier: product.supplier || product.brand || "N/A",
             image: primaryImage,
             weight: product.weight?.value || product.weight || 0,
-            unit: product.weight?.unit || product.unit || 'unit',
+            unit: product.weight?.unit || product.unit || "unit",
             weightDisplay: weightDisplay,
             totalSold: vp.analytics?.totalSold || 0,
             totalRevenue: vp.analytics?.totalRevenue || 0,
-            isOwnProduct: activeTab === 'own',
-            approvalStatus: product.approvalStatus?.status || 'pending'
+            isOwnProduct: activeTab === "own",
+            approvalStatus: product.approvalStatus?.status || "pending",
           };
         });
 
-        console.log('Transformed Inventory Data:', inventoryData);
+        console.log("Transformed Inventory Data:", inventoryData);
         setInventory(inventoryData);
       } else {
         setInventory([]);
       }
     } catch (err) {
-      console.error('Error fetching inventory:', err);
-      setError(err.message || 'Failed to load inventory');
+      console.error("Error fetching inventory:", err);
+      setError(err.message || "Failed to load inventory");
       setInventory([]);
     } finally {
       setLoading(false);
@@ -393,22 +458,29 @@ const handleBulkUpdate = async () => {
     try {
       const quantity = parseInt(editValues.quantity);
       if (!quantity || quantity <= 0) {
-        setError('Please enter a valid quantity');
+        setError("Please enter a valid quantity");
         return;
       }
 
       const operation = editValues.operation;
 
-    const MAX_STOCK_LIMIT = 500; 
+      const MAX_STOCK_LIMIT = 500;
 
-    if (operation === 'add' && (product.currentStock + quantity) > MAX_STOCK_LIMIT) {
-      setError(`Cannot add ${quantity} units. Maximum stock limit is ${MAX_STOCK_LIMIT}. Current stock: ${product.currentStock}`);
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
+      if (
+        operation === "add" &&
+        product.currentStock + quantity > MAX_STOCK_LIMIT
+      ) {
+        setError(
+          `Cannot add ${quantity} units. Maximum stock limit is ${MAX_STOCK_LIMIT}. Current stock: ${product.currentStock}`
+        );
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
       // Validate remove operation
-      if (operation === 'subtract' && quantity > product.currentStock) {
-        setError(`Cannot remove ${quantity} units. Only ${product.currentStock} available.`);
+      if (operation === "subtract" && quantity > product.currentStock) {
+        setError(
+          `Cannot remove ${quantity} units. Only ${product.currentStock} available.`
+        );
         setTimeout(() => setError(null), 3000);
         return;
       }
@@ -417,51 +489,56 @@ const handleBulkUpdate = async () => {
       const response = await updateVendorProductStock(product.vendorProductId, {
         quantity,
         operation,
-        reason: operation === 'add' ? 'Manual stock addition' : 'Manual stock removal'
+        reason:
+          operation === "add"
+            ? "Manual stock addition"
+            : "Manual stock removal",
       });
 
       if (response.success) {
         // Update local state with new stock
         const newStock = response.data.newStock;
 
-        setInventory(inventory.map(item =>
-          item.id === product.id
-            ? {
-              ...item,
-              currentStock: newStock,
-              totalValue: newStock * item.unitPrice,
-              status: getStockStatus(newStock, item.minThreshold)
-            }
-            : item
-        ));
+        setInventory(
+          inventory.map((item) =>
+            item.id === product.id
+              ? {
+                  ...item,
+                  currentStock: newStock,
+                  totalValue: newStock * item.unitPrice,
+                  status: getStockStatus(newStock, item.minThreshold),
+                }
+              : item
+          )
+        );
 
         setEditingProductId(null);
-        setEditValues({ quantity: '', operation: 'add' });
+        setEditValues({ quantity: "", operation: "add" });
 
         // Show success message
         setSuccessMessage(`Stock updated successfully! New stock: ${newStock}`);
         setTimeout(() => setSuccessMessage(null), 5000);
       }
     } catch (err) {
-      console.error('Error updating stock:', err);
-      setError(err.message || 'Failed to update stock');
+      console.error("Error updating stock:", err);
+      setError(err.message || "Failed to update stock");
       setTimeout(() => setError(null), 5000);
     }
   };
 
   const getStockStatus = (currentStock, minThreshold) => {
-    if (currentStock === 0) return 'out_of_stock';
-    if (currentStock <= minThreshold) return 'low_stock';
-    return 'in_stock';
+    if (currentStock === 0) return "out_of_stock";
+    if (currentStock <= minThreshold) return "low_stock";
+    return "in_stock";
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'in_stock':
+      case "in_stock":
         return <CheckCircleIcon className="h-4 w-4 text-green-500" />;
-      case 'low_stock':
+      case "low_stock":
         return <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500" />;
-      case 'out_of_stock':
+      case "out_of_stock":
         return <ClockIcon className="h-4 w-4 text-red-500" />;
       default:
         return <ClockIcon className="h-4 w-4 text-gray-500" />;
@@ -470,19 +547,21 @@ const handleBulkUpdate = async () => {
 
   const getStatusBadge = (status) => {
     const styles = {
-      in_stock: 'bg-green-100 text-green-800',
-      low_stock: 'bg-yellow-100 text-yellow-800',
-      out_of_stock: 'bg-red-100 text-red-800'
+      in_stock: "bg-green-100 text-green-800",
+      low_stock: "bg-yellow-100 text-yellow-800",
+      out_of_stock: "bg-red-100 text-red-800",
     };
 
     const labels = {
-      in_stock: 'In Stock',
-      low_stock: 'Low Stock',
-      out_of_stock: 'Out of Stock'
+      in_stock: "In Stock",
+      low_stock: "Low Stock",
+      out_of_stock: "Out of Stock",
     };
 
     return (
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[status]}`}>
+      <span
+        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[status]}`}
+      >
         {labels[status]}
       </span>
     );
@@ -493,27 +572,30 @@ const handleBulkUpdate = async () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
   };
 
-  const filteredInventory = inventory.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredInventory = inventory.filter((item) => {
+    const matchesSearch =
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
-    const matchesStock = filterStock === 'all' || item.status === filterStock;
+    const matchesCategory =
+      filterCategory === "all" || item.category === filterCategory;
+    const matchesStock = filterStock === "all" || item.status === filterStock;
     return matchesSearch && matchesCategory && matchesStock;
   });
 
   const inventoryStats = {
     totalItems: inventory.length,
-    inStock: inventory.filter(item => item.status === 'in_stock').length,
-    lowStock: inventory.filter(item => item.status === 'low_stock').length,
-    outOfStock: inventory.filter(item => item.status === 'out_of_stock').length,
-    totalValue: inventory.reduce((sum, item) => sum + item.totalValue, 0)
+    inStock: inventory.filter((item) => item.status === "in_stock").length,
+    lowStock: inventory.filter((item) => item.status === "low_stock").length,
+    outOfStock: inventory.filter((item) => item.status === "out_of_stock")
+      .length,
+    totalValue: inventory.reduce((sum, item) => sum + item.totalValue, 0),
   };
 
   if (loading) {
@@ -537,8 +619,18 @@ const handleBulkUpdate = async () => {
                 onClick={() => setSuccessMessage(null)}
                 className="ml-auto text-green-600 hover:text-green-800"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -556,8 +648,18 @@ const handleBulkUpdate = async () => {
                 onClick={() => setError(null)}
                 className="ml-auto text-red-600 hover:text-red-800"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -568,13 +670,16 @@ const handleBulkUpdate = async () => {
       {/* Header */}
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Inventory Management</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            Inventory Management
+          </h1>
           <p className="mt-0.5 text-xs text-gray-500">
             Track and manage your product inventory levels
           </p>
           {selectedProducts.size > 0 && (
             <p className="mt-1 text-xs font-medium text-blue-600">
-              ✓ {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected for bulk update
+              ✓ {selectedProducts.size} product
+              {selectedProducts.size !== 1 ? "s" : ""} selected for bulk update
             </p>
           )}
         </div>
@@ -585,16 +690,23 @@ const handleBulkUpdate = async () => {
             className="inline-flex items-center rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg
-              className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`}
+              className={`h-3.5 w-3.5 mr-1.5 ${
+                refreshing ? "animate-spin" : ""
+              }`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
-          {activeTab === 'own' && (
+          {activeTab === "own" && (
             <button
               onClick={() => setShowAddProductModal(true)}
               className="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500"
@@ -619,13 +731,15 @@ const handleBulkUpdate = async () => {
             <button
               onClick={() => setShowBulkUpdateModal(true)}
               disabled={selectedProducts.size === 0}
-              className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${selectedProducts.size === 0
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
-                }`}
+              className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                selectedProducts.size === 0
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-500 cursor-pointer"
+              }`}
             >
               <ArchiveBoxIcon className="h-3.5 w-3.5 mr-1.5" />
-              Bulk Update {selectedProducts.size > 0 && `(${selectedProducts.size})`}
+              Bulk Update{" "}
+              {selectedProducts.size > 0 && `(${selectedProducts.size})`}
             </button>
             {selectedProducts.size === 0 && (
               <div className="hidden group-hover:block absolute top-full mt-2 right-0 w-48 bg-gray-900 text-white text-xs rounded py-2 px-3 z-10">
@@ -641,16 +755,17 @@ const handleBulkUpdate = async () => {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('lalaji')}
-            className={`${activeTab === 'lalaji'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              } whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium`}
+            onClick={() => setActiveTab("lalaji")}
+            className={`${
+              activeTab === "lalaji"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+            } whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium`}
           >
             <div className="flex items-center gap-2">
               <CubeIcon className="h-4 w-4" />
               Lalaji Store Products
-              {activeTab === 'lalaji' && inventory.length > 0 && (
+              {activeTab === "lalaji" && inventory.length > 0 && (
                 <span className="bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs">
                   {inventory.length}
                 </span>
@@ -658,16 +773,17 @@ const handleBulkUpdate = async () => {
             </div>
           </button>
           <button
-            onClick={() => setActiveTab('own')}
-            className={`${activeTab === 'own'
-                ? 'border-green-500 text-green-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              } whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium`}
+            onClick={() => setActiveTab("own")}
+            className={`${
+              activeTab === "own"
+                ? "border-green-500 text-green-600"
+                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+            } whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium`}
           >
             <div className="flex items-center gap-2">
               <TagIcon className="h-4 w-4" />
               My Store Products
-              {activeTab === 'own' && inventory.length > 0 && (
+              {activeTab === "own" && inventory.length > 0 && (
                 <span className="bg-green-100 text-green-600 py-0.5 px-2 rounded-full text-xs">
                   {inventory.length}
                 </span>
@@ -679,11 +795,12 @@ const handleBulkUpdate = async () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
         <div
-          onClick={() => setFilterStock('all')}
-          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${filterStock === 'all'
-              ? 'border-blue-500 '
-              : 'border-gray-200 hover:border-blue-300 hover:'
-            }`}
+          onClick={() => setFilterStock("all")}
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === "all"
+              ? "border-blue-500 "
+              : "border-gray-200 hover:border-blue-300 hover:"
+          }`}
         >
           <div className="p-3">
             <div className="flex items-center">
@@ -692,19 +809,26 @@ const handleBulkUpdate = async () => {
               </div>
               <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">Total Items</dt>
-                  <dd className="text-base font-semibold text-gray-900">{inventoryStats.totalItems}</dd>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Total Items
+                  </dt>
+                  <dd className="text-base font-semibold text-gray-900">
+                    {inventoryStats.totalItems}
+                  </dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
         <div
-          onClick={() => setFilterStock(filterStock === 'in_stock' ? 'all' : 'in_stock')}
-          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${filterStock === 'in_stock'
-              ? 'border-green-500 '
-              : 'border-gray-200 hover:border-green-300 hover:'
-            }`}
+          onClick={() =>
+            setFilterStock(filterStock === "in_stock" ? "all" : "in_stock")
+          }
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === "in_stock"
+              ? "border-green-500 "
+              : "border-gray-200 hover:border-green-300 hover:"
+          }`}
         >
           <div className="p-3">
             <div className="flex items-center">
@@ -713,19 +837,26 @@ const handleBulkUpdate = async () => {
               </div>
               <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">In Stock</dt>
-                  <dd className="text-base font-semibold text-gray-900">{inventoryStats.inStock}</dd>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    In Stock
+                  </dt>
+                  <dd className="text-base font-semibold text-gray-900">
+                    {inventoryStats.inStock}
+                  </dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
         <div
-          onClick={() => setFilterStock(filterStock === 'low_stock' ? 'all' : 'low_stock')}
-          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${filterStock === 'low_stock'
-              ? 'border-yellow-500 '
-              : 'border-gray-200 hover:border-yellow-300 hover:'
-            }`}
+          onClick={() =>
+            setFilterStock(filterStock === "low_stock" ? "all" : "low_stock")
+          }
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === "low_stock"
+              ? "border-yellow-500 "
+              : "border-gray-200 hover:border-yellow-300 hover:"
+          }`}
         >
           <div className="p-3">
             <div className="flex items-center">
@@ -734,19 +865,28 @@ const handleBulkUpdate = async () => {
               </div>
               <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">Low Stock</dt>
-                  <dd className="text-base font-semibold text-gray-900">{inventoryStats.lowStock}</dd>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Low Stock
+                  </dt>
+                  <dd className="text-base font-semibold text-gray-900">
+                    {inventoryStats.lowStock}
+                  </dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
         <div
-          onClick={() => setFilterStock(filterStock === 'out_of_stock' ? 'all' : 'out_of_stock')}
-          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${filterStock === 'out_of_stock'
-              ? 'border-red-500 '
-              : 'border-gray-200 hover:border-red-300 hover:'
-            }`}
+          onClick={() =>
+            setFilterStock(
+              filterStock === "out_of_stock" ? "all" : "out_of_stock"
+            )
+          }
+          className={`bg-white overflow-hidden rounded-lg border-2 cursor-pointer transition-all ${
+            filterStock === "out_of_stock"
+              ? "border-red-500 "
+              : "border-gray-200 hover:border-red-300 hover:"
+          }`}
         >
           <div className="p-3">
             <div className="flex items-center">
@@ -755,8 +895,12 @@ const handleBulkUpdate = async () => {
               </div>
               <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">Out of Stock</dt>
-                  <dd className="text-base font-semibold text-gray-900">{inventoryStats.outOfStock}</dd>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Out of Stock
+                  </dt>
+                  <dd className="text-base font-semibold text-gray-900">
+                    {inventoryStats.outOfStock}
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -770,8 +914,12 @@ const handleBulkUpdate = async () => {
               </div>
               <div className="ml-3 w-0 flex-1">
                 <dl>
-                  <dt className="text-xs font-medium text-gray-500 truncate">Total Value</dt>
-                  <dd className="text-base font-semibold text-gray-900">₹{inventoryStats.totalValue.toLocaleString()}</dd>
+                  <dt className="text-xs font-medium text-gray-500 truncate">
+                    Total Value
+                  </dt>
+                  <dd className="text-base font-semibold text-gray-900">
+                    ₹{inventoryStats.totalValue.toLocaleString()}
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -796,11 +944,21 @@ const handleBulkUpdate = async () => {
               />
               {searchTerm && (
                 <button
-                  onClick={() => setSearchTerm('')}
+                  onClick={() => setSearchTerm("")}
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               )}
@@ -816,12 +974,13 @@ const handleBulkUpdate = async () => {
               <div className="flex items-center">
                 <TagIcon className="h-4 w-4 text-gray-400 mr-2" />
                 <span className="truncate">
-                  {filterCategory === 'all' ? 'All Categories' : filterCategory}
+                  {filterCategory === "all" ? "All Categories" : filterCategory}
                 </span>
               </div>
               <ChevronDownIcon
-                className={`h-4 w-4 text-gray-400 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''
-                  }`}
+                className={`h-4 w-4 text-gray-400 transition-transform ${
+                  categoryDropdownOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -830,11 +989,14 @@ const handleBulkUpdate = async () => {
               <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg  max-h-60 overflow-auto">
                 <div
                   onClick={() => {
-                    setFilterCategory('all');
+                    setFilterCategory("all");
                     setCategoryDropdownOpen(false);
                   }}
-                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filterCategory === 'all' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                    }`}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
+                    filterCategory === "all"
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "text-gray-700"
+                  }`}
                 >
                   <div className="flex items-center">
                     <TagIcon className="h-4 w-4 mr-2 text-gray-400" />
@@ -848,8 +1010,11 @@ const handleBulkUpdate = async () => {
                       setFilterCategory(category);
                       setCategoryDropdownOpen(false);
                     }}
-                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${filterCategory === category ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-                      }`}
+                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${
+                      filterCategory === category
+                        ? "bg-blue-50 text-blue-700 font-medium"
+                        : "text-gray-700"
+                    }`}
                   >
                     <div className="flex items-center">
                       <TagIcon className="h-4 w-4 mr-2 text-gray-400" />
@@ -862,12 +1027,14 @@ const handleBulkUpdate = async () => {
           </div>
 
           {/* Clear Filters Button */}
-          {(searchTerm || filterCategory !== 'all' || filterStock !== 'all') && (
+          {(searchTerm ||
+            filterCategory !== "all" ||
+            filterStock !== "all") && (
             <button
               onClick={() => {
-                setSearchTerm('');
-                setFilterCategory('all');
-                setFilterStock('all');
+                setSearchTerm("");
+                setFilterCategory("all");
+                setFilterStock("all");
               }}
               className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
             >
@@ -876,8 +1043,6 @@ const handleBulkUpdate = async () => {
           )}
         </div>
       </div>
-
-
 
       {/* Inventory Table */}
       <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
@@ -888,7 +1053,10 @@ const handleBulkUpdate = async () => {
                 <th className="px-4 py-2 text-left">
                   <input
                     type="checkbox"
-                    checked={selectedProducts.size === filteredInventory.length && filteredInventory.length > 0}
+                    checked={
+                      selectedProducts.size === filteredInventory.length &&
+                      filteredInventory.length > 0
+                    }
                     onChange={toggleSelectAll}
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -922,10 +1090,15 @@ const handleBulkUpdate = async () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredInventory.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-sm text-gray-500">
-                    {searchTerm || filterCategory !== 'all' || filterStock !== 'all'
-                      ? 'No products match your filters'
-                      : 'No products in inventory. Add products to get started.'}
+                  <td
+                    colSpan="9"
+                    className="px-4 py-8 text-center text-sm text-gray-500"
+                  >
+                    {searchTerm ||
+                    filterCategory !== "all" ||
+                    filterStock !== "all"
+                      ? "No products match your filters"
+                      : "No products in inventory. Add products to get started."}
                   </td>
                 </tr>
               ) : (
@@ -935,7 +1108,9 @@ const handleBulkUpdate = async () => {
                       <input
                         type="checkbox"
                         checked={selectedProducts.has(item.vendorProductId)}
-                        onChange={() => toggleProductSelection(item.vendorProductId)}
+                        onChange={() =>
+                          toggleProductSelection(item.vendorProductId)
+                        }
                         className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </td>
@@ -947,15 +1122,21 @@ const handleBulkUpdate = async () => {
                             alt={item.name}
                             className="h-10 w-10 rounded object-cover mr-3"
                             onError={(e) => {
-                              e.target.style.display = 'none';
+                              e.target.style.display = "none";
                             }}
                           />
                         )}
                         <div>
-                          <div className="text-xs font-medium text-gray-900">{item.name}</div>
-                          <div className="text-xs text-gray-500">{item.sku}</div>
+                          <div className="text-xs font-medium text-gray-900">
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {item.sku}
+                          </div>
                           {item.weightDisplay && (
-                            <div className="text-xs text-gray-400">{item.weightDisplay}</div>
+                            <div className="text-xs text-gray-400">
+                              {item.weightDisplay}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -963,24 +1144,43 @@ const handleBulkUpdate = async () => {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center">
                         <TagIcon className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
-                        <span className="text-xs text-gray-900">{item.category}</span>
+                        <span className="text-xs text-gray-900">
+                          {item.category}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-xs font-medium text-gray-900">{item.currentStock}</div>
-                      <div className="text-xs text-gray-500">Min: {item.minThreshold} | Max: {item.maxCapacity}</div>
+                      <div className="text-xs font-medium text-gray-900">
+                        {item.currentStock}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Min: {item.minThreshold} | Max: {item.maxCapacity}
+                      </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="w-full bg-gray-200 rounded-full h-1.5">
                         <div
-                          className={`h-1.5 rounded-full ${item.status === 'in_stock' ? 'bg-green-500' :
-                              item.status === 'low_stock' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}
-                          style={{ width: `${getStockPercentage(item.currentStock, item.maxCapacity)}%` }}
+                          className={`h-1.5 rounded-full ${
+                            item.status === "in_stock"
+                              ? "bg-green-500"
+                              : item.status === "low_stock"
+                              ? "bg-yellow-500"
+                              : "bg-red-500"
+                          }`}
+                          style={{
+                            width: `${getStockPercentage(
+                              item.currentStock,
+                              item.maxCapacity
+                            )}%`,
+                          }}
                         ></div>
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {getStockPercentage(item.currentStock, item.maxCapacity).toFixed(0)}% capacity
+                        {getStockPercentage(
+                          item.currentStock,
+                          item.maxCapacity
+                        ).toFixed(0)}
+                        % capacity
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -990,8 +1190,12 @@ const handleBulkUpdate = async () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-xs font-medium text-gray-900">₹{item.totalValue.toLocaleString()}</div>
-                      <div className="text-xs text-gray-500">@₹{item.unitPrice} each</div>
+                      <div className="text-xs font-medium text-gray-900">
+                        ₹{item.totalValue.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        @₹{item.unitPrice} each
+                      </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
                       {formatDate(item.lastRestocked)}
@@ -1002,7 +1206,12 @@ const handleBulkUpdate = async () => {
                         <div className="flex items-center gap-2">
                           <select
                             value={editValues.operation}
-                            onChange={(e) => setEditValues({ ...editValues, operation: e.target.value })}
+                            onChange={(e) =>
+                              setEditValues({
+                                ...editValues,
+                                operation: e.target.value,
+                              })
+                            }
                             className="text-xs border-gray-300 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
                           >
                             <option value="add">Add (+)</option>
@@ -1012,7 +1221,12 @@ const handleBulkUpdate = async () => {
                             type="number"
                             min="1"
                             value={editValues.quantity}
-                            onChange={(e) => setEditValues({ ...editValues, quantity: e.target.value })}
+                            onChange={(e) =>
+                              setEditValues({
+                                ...editValues,
+                                quantity: e.target.value,
+                              })
+                            }
                             placeholder="Qty"
                             className="w-20 text-xs border-gray-300 rounded px-2 py-1 focus:ring-blue-500 focus:border-blue-500"
                           />
@@ -1027,7 +1241,7 @@ const handleBulkUpdate = async () => {
                           <button
                             onClick={() => {
                               setEditingProductId(null);
-                              setEditValues({ quantity: '', operation: 'add' });
+                              setEditValues({ quantity: "", operation: "add" });
                             }}
                             className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                           >
@@ -1040,12 +1254,22 @@ const handleBulkUpdate = async () => {
                           <button
                             onClick={() => {
                               setEditingProductId(item.id);
-                              setEditValues({ quantity: '', operation: 'add' });
+                              setEditValues({ quantity: "", operation: "add" });
                             }}
                             className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
                           >
-                            <svg className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            <svg
+                              className="h-3.5 w-3.5 mr-1"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
                             </svg>
                             Update Stock
                           </button>
@@ -1080,7 +1304,8 @@ const handleBulkUpdate = async () => {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Add your own product to sell in your store. It will be added directly to your inventory.
+                  Add your own product to sell in your store. It will be added
+                  directly to your inventory.
                 </p>
               </div>
 
@@ -1095,7 +1320,9 @@ const handleBulkUpdate = async () => {
                     <input
                       type="text"
                       value={newProduct.name}
-                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                      onChange={(e) =>
+                        setNewProduct({ ...newProduct, name: e.target.value })
+                      }
                       placeholder="e.g., Fresh Organic Apples"
                       className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
@@ -1108,7 +1335,12 @@ const handleBulkUpdate = async () => {
                     </label>
                     <textarea
                       value={newProduct.description}
-                      onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                      onChange={(e) =>
+                        setNewProduct({
+                          ...newProduct,
+                          description: e.target.value,
+                        })
+                      }
                       rows={3}
                       placeholder="Detailed product description..."
                       className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
@@ -1127,8 +1359,10 @@ const handleBulkUpdate = async () => {
                         className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       >
                         <option value="">Select Category</option>
-                        {categories.map(cat => (
-                          <option key={cat._id} value={cat._id}>{cat.name}</option>
+                        {categories.map((cat) => (
+                          <option key={cat._id} value={cat._id}>
+                            {cat.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1138,15 +1372,58 @@ const handleBulkUpdate = async () => {
                       </label>
                       <select
                         value={newProduct.subcategory}
-                        onChange={(e) => setNewProduct({ ...newProduct, subcategory: e.target.value })}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            subcategory: e.target.value,
+                          })
+                        }
                         disabled={!newProduct.category}
                         className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="">Select Subcategory</option>
-                        {subcategories.map(sub => (
-                          <option key={sub._id} value={sub._id}>{sub.name}</option>
+                        {subcategories.map((sub) => (
+                          <option key={sub._id} value={sub._id}>
+                            {sub.name}
+                          </option>
                         ))}
                       </select>
+                    </div>
+                  </div>
+
+                  {/* SKU */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      SKU <span className="text-red-500">*</span>
+                    </label>
+
+                    <div className="flex gap-1">
+                      <input
+                        type="text"
+                        required
+                        value={newProduct.sku}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            sku: e.target.value.toUpperCase().trim(),
+                          })
+                        }
+                        placeholder="SKU-001"
+                        className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const autoSKU = `SKU-${Date.now()}-${Math.floor(
+                            100 + Math.random() * 900
+                          )}`;
+                          setNewProduct({ ...newProduct, sku: autoSKU });
+                        }}
+                        className="px-3 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Auto
+                      </button>
                     </div>
                   </div>
 
@@ -1159,7 +1436,12 @@ const handleBulkUpdate = async () => {
                       <input
                         type="text"
                         value={newProduct.brand}
-                        onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            brand: e.target.value,
+                          })
+                        }
                         placeholder="e.g., Organic Farms"
                         className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       />
@@ -1171,7 +1453,12 @@ const handleBulkUpdate = async () => {
                       <input
                         type="number"
                         value={newProduct.basePrice}
-                        onChange={(e) => setNewProduct({ ...newProduct, basePrice: e.target.value })}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            basePrice: e.target.value,
+                          })
+                        }
                         placeholder="0"
                         min="0"
                         className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -1188,7 +1475,12 @@ const handleBulkUpdate = async () => {
                       <input
                         type="number"
                         value={newProduct.weight}
-                        onChange={(e) => setNewProduct({ ...newProduct, weight: e.target.value })}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            weight: e.target.value,
+                          })
+                        }
                         placeholder="0"
                         min="0"
                         step="0.01"
@@ -1201,7 +1493,9 @@ const handleBulkUpdate = async () => {
                       </label>
                       <select
                         value={newProduct.unit}
-                        onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
+                        onChange={(e) =>
+                          setNewProduct({ ...newProduct, unit: e.target.value })
+                        }
                         className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       >
                         <option value="kg">Kilogram (kg)</option>
@@ -1224,7 +1518,12 @@ const handleBulkUpdate = async () => {
                       <input
                         type="number"
                         value={newProduct.initialStock}
-                        onChange={(e) => setNewProduct({ ...newProduct, initialStock: parseInt(e.target.value) || 0 })}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            initialStock: parseInt(e.target.value) || 0,
+                          })
+                        }
                         placeholder="0"
                         min="0"
                         className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -1237,7 +1536,12 @@ const handleBulkUpdate = async () => {
                       <input
                         type="number"
                         value={newProduct.lowStockThreshold}
-                        onChange={(e) => setNewProduct({ ...newProduct, lowStockThreshold: parseInt(e.target.value) || 10 })}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            lowStockThreshold: parseInt(e.target.value) || 10,
+                          })
+                        }
                         placeholder="10"
                         min="0"
                         className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -1260,7 +1564,10 @@ const handleBulkUpdate = async () => {
                     />
                     <div className="grid grid-cols-4 gap-2">
                       {newProduct.images.map((img, index) => (
-                        <div key={index} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                        <div
+                          key={index}
+                          className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200"
+                        >
                           <img
                             src={URL.createObjectURL(img)}
                             alt={`Product ${index + 1}`}
@@ -1285,11 +1592,15 @@ const handleBulkUpdate = async () => {
                           className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 hover:bg-blue-50"
                         >
                           <PhotoIcon className="h-6 w-6 text-gray-400" />
-                          <span className="text-xs text-gray-500 mt-1">Add Image</span>
+                          <span className="text-xs text-gray-500 mt-1">
+                            Add Image
+                          </span>
                         </button>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">First image will be the primary image</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      First image will be the primary image
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1304,9 +1615,24 @@ const handleBulkUpdate = async () => {
                 >
                   {addingProduct ? (
                     <>
-                      <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin h-4 w-4 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Adding...
                     </>
@@ -1348,14 +1674,15 @@ const handleBulkUpdate = async () => {
                     onClick={() => {
                       setShowBulkUpdateModal(false);
                       setIndividualQuantities({});
-                      setBulkQuantity('');
+                      setBulkQuantity("");
                     }}
                   >
                     <XMarkIcon className="h-5 w-5" />
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Update stock for {selectedProducts.size} selected product{selectedProducts.size !== 1 ? 's' : ''}
+                  Update stock for {selectedProducts.size} selected product
+                  {selectedProducts.size !== 1 ? "s" : ""}
                 </p>
               </div>
 
@@ -1369,31 +1696,34 @@ const handleBulkUpdate = async () => {
                     </label>
                     <div className="grid grid-cols-3 gap-3">
                       <button
-                        onClick={() => setBulkOperation('add')}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${bulkOperation === 'add'
-                            ? 'bg-green-50 border-green-500 text-green-700'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
+                        onClick={() => setBulkOperation("add")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${
+                          bulkOperation === "add"
+                            ? "bg-green-50 border-green-500 text-green-700"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
                         <PlusIcon className="h-4 w-4 mx-auto mb-1" />
                         Add Stock
                       </button>
                       <button
-                        onClick={() => setBulkOperation('subtract')}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${bulkOperation === 'subtract'
-                            ? 'bg-red-50 border-red-500 text-red-700'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
+                        onClick={() => setBulkOperation("subtract")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${
+                          bulkOperation === "subtract"
+                            ? "bg-red-50 border-red-500 text-red-700"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
                         <MinusIcon className="h-4 w-4 mx-auto mb-1" />
                         Remove Stock
                       </button>
                       <button
-                        onClick={() => setBulkOperation('set')}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${bulkOperation === 'set'
-                            ? 'bg-blue-50 border-blue-500 text-blue-700'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
+                        onClick={() => setBulkOperation("set")}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border ${
+                          bulkOperation === "set"
+                            ? "bg-blue-50 border-blue-500 text-blue-700"
+                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
                         <AdjustmentsHorizontalIcon className="h-4 w-4 mx-auto mb-1" />
                         Set Stock
@@ -1411,7 +1741,7 @@ const handleBulkUpdate = async () => {
                         <button
                           onClick={() => {
                             const newQuantities = {};
-                            Array.from(selectedProducts).forEach(id => {
+                            Array.from(selectedProducts).forEach((id) => {
                               newQuantities[id] = bulkQuantity;
                             });
                             setIndividualQuantities(newQuantities);
@@ -1439,11 +1769,16 @@ const handleBulkUpdate = async () => {
                     </label>
                     <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
                       {Array.from(selectedProducts).map((vendorProductId) => {
-                        const product = inventory.find(item => item.vendorProductId === vendorProductId);
+                        const product = inventory.find(
+                          (item) => item.vendorProductId === vendorProductId
+                        );
                         if (!product) return null;
 
                         return (
-                          <div key={vendorProductId} className="flex items-center gap-3 p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+                          <div
+                            key={vendorProductId}
+                            className="flex items-center gap-3 p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                          >
                             <div className="shrink-0">
                               {product.image && (
                                 <img
@@ -1451,26 +1786,31 @@ const handleBulkUpdate = async () => {
                                   alt={product.name}
                                   className="h-10 w-10 rounded object-cover"
                                   onError={(e) => {
-                                    e.target.style.display = 'none';
+                                    e.target.style.display = "none";
                                   }}
                                 />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {product.name}
+                              </p>
                               <p className="text-xs text-gray-500">
-                                Current: {product.currentStock} | SKU: {product.sku}
+                                Current: {product.currentStock} | SKU:{" "}
+                                {product.sku}
                               </p>
                             </div>
                             <div className="shrink-0">
                               <input
                                 type="number"
                                 min="1"
-                                value={individualQuantities[vendorProductId] || ''}
+                                value={
+                                  individualQuantities[vendorProductId] || ""
+                                }
                                 onChange={(e) => {
                                   setIndividualQuantities({
                                     ...individualQuantities,
-                                    [vendorProductId]: e.target.value
+                                    [vendorProductId]: e.target.value,
                                   });
                                 }}
                                 placeholder="Qty"
@@ -1487,9 +1827,12 @@ const handleBulkUpdate = async () => {
                   <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                     <p className="text-sm text-blue-900 font-medium">Summary</p>
                     <p className="text-xs text-blue-700 mt-1">
-                      {bulkOperation === 'add' && 'Stock will be added to each product'}
-                      {bulkOperation === 'subtract' && 'Stock will be removed from each product'}
-                      {bulkOperation === 'set' && 'Stock will be set to specified quantity for each product'}
+                      {bulkOperation === "add" &&
+                        "Stock will be added to each product"}
+                      {bulkOperation === "subtract" &&
+                        "Stock will be removed from each product"}
+                      {bulkOperation === "set" &&
+                        "Stock will be set to specified quantity for each product"}
                     </p>
                   </div>
                 </div>
@@ -1505,16 +1848,32 @@ const handleBulkUpdate = async () => {
                 >
                   {bulkUpdating ? (
                     <>
-                      <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin h-4 w-4 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Updating...
                     </>
                   ) : (
                     <>
                       <CheckCircleIcon className="h-4 w-4 mr-1" />
-                      Update {selectedProducts.size} Product{selectedProducts.size !== 1 ? 's' : ''}
+                      Update {selectedProducts.size} Product
+                      {selectedProducts.size !== 1 ? "s" : ""}
                     </>
                   )}
                 </button>
@@ -1523,7 +1882,7 @@ const handleBulkUpdate = async () => {
                   onClick={() => {
                     setShowBulkUpdateModal(false);
                     setIndividualQuantities({});
-                    setBulkQuantity('');
+                    setBulkQuantity("");
                   }}
                   disabled={bulkUpdating}
                   className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900  ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
@@ -1535,7 +1894,6 @@ const handleBulkUpdate = async () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
